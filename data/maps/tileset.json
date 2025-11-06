@@ -1,0 +1,14 @@
+{ "columns":4,
+ "image":"..\/sprites\/sprite.png",
+ "imageheight":640,
+ "imagewidth":512,
+ "margin":0,
+ "name":"tileset",
+ "spacing":0,
+ "tilecount":20,
+ "tiledversion":"1.10.2",
+ "tileheight":128,
+ "tilewidth":128,
+ "type":"tileset",
+ "version":"1.10"
+}
