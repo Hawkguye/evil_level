@@ -25,7 +25,7 @@ CAMERA_SPEED = 0.5
 # new wall movement constants
 WALL_1_MOVE_SPEED = 10      # pixels per update
 WALL_1_MOVE_DISTANCE = 400     # total pixels to move
-WALL_2_MOVE_SPEED = 10
+WALL_2_MOVE_SPEED = 8
 WALL_2_MOVE_DISTANCE = 96
 
 START_POS = (160, 300)
@@ -89,11 +89,23 @@ class Door():
         """ initializer """
         self.pos_x = x
         self.pos_y = y
-        self.height = 100
-        self.width = 80
+        self.height = 45
+        self.width = 30
     
     def draw(self):
+        """ draws the door """
+        arcade.draw_rectangle_filled(self.pos_x, self.pos_y, self.width + 10, self.height + 10, (64, 22, 0))
         arcade.draw_rectangle_filled(self.pos_x, self.pos_y, self.width, self.height, arcade.color.WHITE)
+    
+    def check_collision(self, left, right, bottom):
+        """ check the collision of the door w/ an object """
+        if abs(right - (self.pos_x - self.width / 2)) < 3 and bottom < self.pos_y + self.height / 2:
+            return True
+        if abs(left - (self.pos_x + self.width / 2)) < 3 and bottom < self.pos_y + self.height / 2:
+            return True
+        if right > self.pos_x - self.width / 2 and left < self.pos_x + self.width / 2 and bottom < self.pos_y + self.height / 2:
+            return True
+        return False
 
 
 class MyGame(arcade.Window):
@@ -105,6 +117,8 @@ class MyGame(arcade.Window):
 
         # set location of the window
         self.set_location(100, 100)
+
+        self.game_on = True
 
         # sprite lists
         self.player_list = None
@@ -181,7 +195,7 @@ class MyGame(arcade.Window):
         self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING)
 
         # sprite_list is from Tiled map layers
-        self.door = Door(920, 220)
+        self.door = Door(920, 210)
         self.wall_list = self.tile_map.sprite_lists["Walls"]
         self.star_list = self.tile_map.sprite_lists["Stars"]
         self.spike_list = self.tile_map.sprite_lists["Spike"]
@@ -214,8 +228,8 @@ class MyGame(arcade.Window):
         self.camera_sprites.use()
 
         # draw the sprite lists
-        self.player_list.draw()
         self.door.draw()
+        self.player_list.draw()
         self.wall_list.draw()
         self.wall_1.wall_list.draw()
         self.wall_2.wall_list.draw()
@@ -235,14 +249,14 @@ class MyGame(arcade.Window):
         arcade.draw_text(f"Score: {self.score}", 50, 550, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 600, font_size=16)
         arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
-
         
-
     
     def on_key_press(self, key, modifiers):
         """
         Called whenever a key is pressed.
         """
+        if not self.game_on:
+            return
         if key == arcade.key.UP or key == arcade.key.SPACE:
             self.jump_pressed = True
         elif key == arcade.key.LEFT:
@@ -261,12 +275,14 @@ class MyGame(arcade.Window):
         elif key == arcade.key.RIGHT:
             self.right_pressed = False
 
+
     def on_mouse_press(self, x, y, button, modifiers):
         """ called whenver mouse is clicked """
         if button == arcade.MOUSE_BUTTON_LEFT:
             print("left mouse button pressed at ", x, y)
         if button == arcade.MOUSE_BUTTON_RIGHT:
             print("right mouse button pressed at ", x, y)
+
 
     def update(self, delta_time):
         """ Movement and game logic """
@@ -280,6 +296,13 @@ class MyGame(arcade.Window):
             # While the burst is active, do not advance game logic
             return
 
+        if not self.game_on:
+            self.player_sprite.center_x = self.door.pos_x
+            self.player_sprite.center_y = self.door.pos_y
+            self.left_pressed = False
+            self.right_pressed = False
+            self.jump_pressed = False
+
         # Call update on all sprites
         self.player_list.update()
         self.star_list.update()
@@ -287,7 +310,8 @@ class MyGame(arcade.Window):
         self.wall_1.update()
         self.wall_2.update()
         self.wall_3.update()
-        self.physics_engine.update()
+        if self.game_on:
+            self.physics_engine.update()
         
         # Calculate speed based on the keys pressed
         self.player_sprite.change_x = 0
@@ -306,6 +330,13 @@ class MyGame(arcade.Window):
         spike_hit = arcade.check_for_collision_with_list(self.player_sprite, self.spike_list)
         if spike_hit:
             self.reset()
+
+        # out of limit, death
+        if self.player_sprite.center_y < -20:
+            self.reset()
+
+        if not self.game_on:
+            return
 
         # a list of all star sprites that collided with the player sprite
         star_hit_list = arcade.check_for_collision_with_list(self.player_sprite, self.star_list)
@@ -335,9 +366,12 @@ class MyGame(arcade.Window):
             if trigger_hit:
                 self.wall_3.start_moving()
 
-        if self.player_sprite.center_y < -20:
-            self.reset()
-
+        # check if touched the door
+        collided_w_door = self.door.check_collision(self.player_sprite.left, self.player_sprite.right, self.player_sprite.bottom)
+        if collided_w_door:
+            print(collided_w_door)
+            self.game_on = False
+            self.game_over()
         # Scroll the screen to the player
         # self.scroll_to_player()
 
@@ -383,6 +417,15 @@ class MyGame(arcade.Window):
         self.player_sprite.center_x = START_POS[0]
         self.player_sprite.center_y = START_POS[1]
         self.player_list.visible = True
+
+    
+    def game_over(self):
+        """ game over animation, door and player moves down """
+        self.player_sprite.center_x = self.door.pos_x
+        self.player_sprite.center_y = self.door.pos_y
+        self.left_pressed = False
+        self.right_pressed = False
+        self.jump_pressed = False
 
     
     def shake_camera(self):
@@ -447,8 +490,6 @@ class MyGame(arcade.Window):
             # frame i, speed 10ms per frame
             anim = arcade.AnimationKeyframe(i, 10, texture)
             self.player_sprite.frames.append(anim)
-
-
 
 
 def main():
