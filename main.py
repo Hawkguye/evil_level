@@ -91,6 +91,12 @@ class Door():
         self.pos_y = y
         self.height = 45
         self.width = 30
+
+        self.move_speed = 1
+        self.move_distance = 60
+        self.moved = 0
+        self.is_moving = False
+        self.move_over = True
     
     def draw(self):
         """ draws the door """
@@ -106,6 +112,25 @@ class Door():
         if right > self.pos_x - self.width / 2 and left < self.pos_x + self.width / 2 and bottom < self.pos_y + self.height / 2:
             return True
         return False
+    
+    def move_down(self):
+        """ moves the door down when the game is over """
+        if not self.is_moving:
+            return
+        
+        remaining = self.move_distance - self.moved
+        if remaining <= 0:
+            self.is_moving = False
+            self.move_over = True
+            return
+
+        delta = min(self.move_speed, remaining)
+        self.pos_y -= delta
+        self.moved += delta
+
+        if self.moved >= self.move_distance:
+            self.is_moving = False
+            self.move_over = True
 
 
 class MyGame(arcade.Window):
@@ -295,6 +320,9 @@ class MyGame(arcade.Window):
                 self.finish_reset()
             # While the burst is active, do not advance game logic
             return
+        
+        if self.door.is_moving:
+            self.door.move_down()
 
         if not self.game_on:
             self.player_sprite.center_x = self.door.pos_x
@@ -302,6 +330,8 @@ class MyGame(arcade.Window):
             self.left_pressed = False
             self.right_pressed = False
             self.jump_pressed = False
+            if self.door.move_over:
+                self.level_complete()
 
         # Call update on all sprites
         self.player_list.update()
@@ -426,6 +456,8 @@ class MyGame(arcade.Window):
         self.left_pressed = False
         self.right_pressed = False
         self.jump_pressed = False
+        self.door.is_moving = True
+        self.shake_camera()
 
     
     def shake_camera(self):
@@ -490,6 +522,11 @@ class MyGame(arcade.Window):
             # frame i, speed 10ms per frame
             anim = arcade.AnimationKeyframe(i, 10, texture)
             self.player_sprite.frames.append(anim)
+    
+    def level_complete(self):
+        self.door.move_over = False
+        self.shake_camera()
+        print("level complete")
 
 
 def main():
