@@ -193,6 +193,8 @@ class MyGame(arcade.Window):
         file_name = "particles.glsl"
         self.shadertoy = Shadertoy(size=self.get_size(),
                                    main_source=open(file_name).read())
+        
+        arcade.enable_timings()
 
 
     def setup(self):
@@ -272,6 +274,7 @@ class MyGame(arcade.Window):
         # draw the gui
         self.camera_gui.use()
         arcade.draw_text(f"Score: {self.score}", 50, 550, font_size=16)
+        arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 600, font_size=16)
         arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
         
@@ -433,6 +436,7 @@ class MyGame(arcade.Window):
         self.player_sprite.change_x = 0
         self.player_sprite.change_y = 0
         self.player_list.visible = False
+        arcade.print_timings()
 
     def finish_reset(self):
         """Complete the reset after the particle burst has finished."""
@@ -535,4 +539,5 @@ def main():
     window.setup()
     arcade.run()
 
-main()
+if __name__ == "__main__":
+    main()
