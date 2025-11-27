@@ -16,21 +16,17 @@ from modals import MovingWall, Door
 SPRITE_SCALING_PLAYER = 0.25
 TILE_SCALING = 0.25
 MOVE_SPEED = 3
-JUMP_SPEED = 10
-GRAVITY = 0.8
+JUMP_SPEED = 8
+GRAVITY = 0.6
 
-SCREEN_WIDTH = 1200
-SCREEN_HEIGHT = 800
+SCREEN_WIDTH = 1000
+SCREEN_HEIGHT = 600
 
+VIEWPORT_MARGIN = 400
 CAMERA_SPEED = 0.5
+CAMERA_OFFSET_Y = 50
 
-# new wall movement constants
-WALL_1_MOVE_SPEED = 10      # pixels per update
-WALL_1_MOVE_DISTANCE = 400     # total pixels to move
-WALL_2_MOVE_SPEED = 8
-WALL_2_MOVE_DISTANCE = 96
-
-START_POS = (160, 300)
+START_POS = (250, 300)
 
 SPRITE_PATH = "data/sprites/sprite.png"
 
@@ -42,14 +38,16 @@ class MyGame(arcade.Window):
         """ initializer """
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Evil Level")
 
+        self.set_location(50, 50)
         # self.set_mouse_visible(False)
-        arcade.set_background_color((255, 195, 99))
+        arcade.set_background_color((122, 9, 2))
 
         self.game_on = True
 
         # sprite lists
         self.player_list = None
         self.bkg_list = None
+        self.background = None
         self.spike_list = None
         self.door = None
         self.vis_sprites_list = None
@@ -83,6 +81,10 @@ class MyGame(arcade.Window):
         # CAMERAS
         self.camera_sprites = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.camera_gui = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.camera_sprites.move_to(Vec2(0, CAMERA_OFFSET_Y))
+        # Used in scrolling
+        # self.view_bottom = 0
+        self.view_left = 0
 
         # reset/freeze state for particle burst
         self.is_resetting = False
@@ -122,7 +124,8 @@ class MyGame(arcade.Window):
         self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING)
 
         # sprite_list is from Tiled map layers
-        self.door = Door(3000, 210)
+        self.door = Door(2100, 180)
+        self.background = self.tile_map.sprite_lists["background"]
         self.bkg_list = self.tile_map.sprite_lists["bkg"]
         self.spike_list = self.tile_map.sprite_lists["spikes"]
 
@@ -137,9 +140,10 @@ class MyGame(arcade.Window):
         self.spike2_list = self.tile_map.sprite_lists["spike2"]
 
         self.trig3_list = self.tile_map.sprite_lists["trig3"]
-        self.gap3_list = MovingWall(self.tile_map.sprite_lists["gap3"], 5, 200, 'horizontal')
+        self.gap3_list = MovingWall(self.tile_map.sprite_lists["gap3"], 0.2, 200, 'horizontal')
 
         self.trig4_list = self.tile_map.sprite_lists["trig4"]
+        self.triggered4 = False
 
         self.trig5_list = self.tile_map.sprite_lists["trig5"]
         self.gap5_list = MovingWall(self.tile_map.sprite_lists["gap5"], 10, 400, 'vertical')
@@ -148,8 +152,8 @@ class MyGame(arcade.Window):
         self.vis_sprites_list = [self.bkg_list, self.gap1_list.wall_list, self.gap3_list.wall_list, self.gap5_list.wall_list]
 
         # Set the background color to what is specified in the map
-        if self.tile_map.background_color:
-            arcade.set_background_color(self.tile_map.background_color)
+        # if self.tile_map.background_color:
+        #     arcade.set_background_color(self.tile_map.background_color)
 
         # setup physics engine
         self.physics_engine = arcade.PhysicsEnginePlatformer(
@@ -164,14 +168,15 @@ class MyGame(arcade.Window):
         # select the camera to use before drawing sprites
         self.camera_sprites.use()
 
+        self.background.draw()
+        self.door.draw()
+        self.player_list.draw()
+        self.ceiling_list.wall_list.draw()
         # draw the sprite lists
         for sprite_list in self.vis_sprites_list:
             sprite_list.draw()
-        self.door.draw()
-        self.player_list.draw()
         self.spike_list.draw()
         self.spike2_list.draw()
-        self.ceiling_list.wall_list.draw()
 
         # Run the GLSL code
         if self.particle_run:
@@ -257,17 +262,23 @@ class MyGame(arcade.Window):
         if self.game_on:
             self.physics_engine.update()
         
-        # Calculate speed based on the keys pressed
-        self.player_sprite.change_x = 0
-        # self.player_sprite.change_y = 0
-        if self.jump_pressed and self.physics_engine.can_jump(1):
-            self.player_sprite.change_y = JUMP_SPEED
+        # Calculate speed based on the keys pressed, if in air, does not stop immedietly
+        self.player_sprite.change_x *= 0.95
+        if self.physics_engine.can_jump():
+            self.player_sprite.change_x = 0
+            if self.jump_pressed:
+                self.player_sprite.change_y = JUMP_SPEED
         if self.left_pressed and not self.right_pressed:
             self.player_sprite.change_x = -MOVE_SPEED
-            self.set_anim(256)
         elif self.right_pressed and not self.left_pressed:
             self.player_sprite.change_x = MOVE_SPEED
+
+        if self.player_sprite.change_x > 0.05:
+            # moving right
             self.set_anim(384)
+        elif self.player_sprite.change_x < -0.05:
+            # moving left
+            self.set_anim(256)
         else:
             self.clear_anim(0, 0)
 
@@ -298,6 +309,12 @@ class MyGame(arcade.Window):
             trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trig3_list)
             if trigger_hit:
                 self.gap3_list.start_moving()
+        
+        if not self.triggered4:
+            trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trig4_list)
+            if trigger_hit:
+                self.triggered4 = True
+                print("trig4 touched")
 
         # check if touched the door
         collided_w_door = self.door.check_collision(self.player_sprite.left, self.player_sprite.right, self.player_sprite.bottom)
@@ -305,19 +322,21 @@ class MyGame(arcade.Window):
             print(collided_w_door)
             self.game_on = False
             self.game_over()
+
         # Scroll the screen to the player
-        # self.scroll_to_player()
+        self.scroll_to_player()
 
     def reset(self):
         """
         resets the scene after death
         """
-        # Start the particle burst and freeze the game; the actual reset will occur
-        # in finish_reset() after the burst duration elapses.
+        # Start the particle burst and freeze the game; the actual reset will occur in finish_reset() after the burst duration elapses.
         # Set uniform data to send to the GLSL shader
-        self.shadertoy.program['pos'] = (self.player_sprite.center_x, self.player_sprite.center_y)
-        # Tell the shader when this burst started so it can start from time 0
+        # Convert world position to screen (camera) coordinates so shader lines up with what the player sees.
+        screen_x = self.player_sprite.center_x - self.view_left
+        screen_y = self.player_sprite.center_y - CAMERA_OFFSET_Y
         try:
+            self.shadertoy.program['pos'] = (screen_x, screen_y)
             self.shadertoy.program['burstStart'] = self.time
         except Exception:
             # If the shader/program doesn't accept the uniform for some reason,
@@ -352,6 +371,7 @@ class MyGame(arcade.Window):
             if wall_list.triggered:
                 wall_list.reset()
         self.triggered2 = False
+        self.triggered4 = False
         self.spike2_list.visible = False
 
         self.player_sprite.center_x = START_POS[0]
@@ -399,10 +419,28 @@ class MyGame(arcade.Window):
         Anything between 0 and 1 will have the camera move to the location with a smoother
         pan
         """
+        # Scroll left
+        left_boundary = self.view_left + VIEWPORT_MARGIN
+        if self.player_sprite.left < left_boundary:
+            self.view_left -= left_boundary - self.player_sprite.left
 
-        position = Vec2(self.player_sprite.center_x - self.width / 2,
-                        self.player_sprite.center_y - self.height / 2)
-        self.camera_sprites.move_to(position, 0.5)
+        # Scroll right
+        right_boundary = self.view_left + self.width - VIEWPORT_MARGIN
+        if self.player_sprite.right > right_boundary:
+            self.view_left += self.player_sprite.right - right_boundary
+
+        # # Scroll up
+        # top_boundary = self.view_bottom + self.height - VIEWPORT_MARGIN
+        # if self.player_sprite.top > top_boundary:
+        #     self.view_bottom += self.player_sprite.top - top_boundary
+
+        # # Scroll down
+        # bottom_boundary = self.view_bottom + VIEWPORT_MARGIN
+        # if self.player_sprite.bottom < bottom_boundary:
+        #     self.view_bottom -= bottom_boundary - self.player_sprite.bottom
+
+        # Scroll to the proper location
+        self.camera_sprites.move_to(Vec2(self.view_left, CAMERA_OFFSET_Y), CAMERA_SPEED)
 
 
     def set_anim(self, y):
