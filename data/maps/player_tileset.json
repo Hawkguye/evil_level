@@ -3,7 +3,7 @@
  "imageheight":640,
  "imagewidth":512,
  "margin":0,
- "name":"tileset",
+ "name":"player_tileset",
  "spacing":0,
  "tilecount":20,
  "tiledversion":"1.10.2",

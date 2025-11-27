@@ -19,7 +19,7 @@ MOVE_SPEED = 3
 JUMP_SPEED = 10
 GRAVITY = 0.8
 
-SCREEN_WIDTH = 1050
+SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 800
 
 CAMERA_SPEED = 0.5
@@ -40,28 +40,33 @@ class MyGame(arcade.Window):
 
     def __init__(self):
         """ initializer """
-        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Evil Level", resizable=True)
+        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Evil Level")
 
-        # set location of the window
-        self.set_location(100, 100)
+        # self.set_mouse_visible(False)
+        arcade.set_background_color((255, 195, 99))
 
         self.game_on = True
 
         # sprite lists
         self.player_list = None
-        self.wall_list = None
-        self.star_list = None
+        self.bkg_list = None
         self.spike_list = None
+        self.door = None
+        self.vis_sprites_list = None
+        self.moving_wall_list = None
 
         # specific to the levels
-        self.wall_1 = None
-        self.wall_2 = None
-        self.wall_3 = None
-        self.trigger_1_list = None
-        self.trigger_2_list = None
-        self.trigger_3_list = None
-        self.door = None
-
+        self.ceiling_list = None
+        self.trig1_list = None
+        self.gap1_list = None
+        self.trig2_list = None
+        self.spike2_list = None
+        self.trig3_list = None
+        self.gap3_list = None
+        self.trig4_list = None
+        self.trig5_list = None
+        self.gap5_list = None
+        
         # player info
         self.death = 0
         self.lvl = 0
@@ -74,24 +79,19 @@ class MyGame(arcade.Window):
         self.right_pressed = False
         self.physics_engine = None
         self.tile_map = None
-        # reset/freeze state for particle burst
-        self.is_resetting = False
-        self.reset_start_time = 0.0
-        # Keep this in sync with the shader BURST_TIME (seconds)
-        self.PARTICLE_BURST_TIME = 0.5
-
-        # self.set_mouse_visible(False)
-        arcade.set_background_color((255, 195, 99))
-
+        
         # CAMERAS
         self.camera_sprites = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.camera_gui = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
 
-        # shader
+        # reset/freeze state for particle burst
+        self.is_resetting = False
+        self.reset_start_time = 0.0
+        self.PARTICLE_BURST_TIME = 0.5
+        # particle shader
         self.particle_run = False
         self.time = 0.0
         self.time_particle_start = 0.0
-        # Load a file and create a shader from it
         file_name = "particles.glsl"
         self.shadertoy = Shadertoy(size=self.get_size(),
                                    main_source=open(file_name).read())
@@ -103,8 +103,7 @@ class MyGame(arcade.Window):
         """ set up the game and initialize the variables """
         # sprite lists
         self.player_list = arcade.SpriteList()
-        self.wall_list = arcade.SpriteList()
-        self.star_list = arcade.SpriteList()
+        self.bkg_list = arcade.SpriteList()
         self.player_sprite = arcade.AnimatedTimeBasedSprite()
 
         # set up player animation sprites
@@ -115,29 +114,38 @@ class MyGame(arcade.Window):
         self.player_sprite.set_hit_box([(-32, -48), (32, -48), (32, 48), (-32, 48)])
 
         # set up the player sprite
-        self.player_sprite.center_x = START_POS[0]
-        self.player_sprite.center_y = START_POS[1]
+        self.player_sprite.center_x, self.player_sprite.center_y = START_POS
         self.player_list.append(self.player_sprite)
 
         # set up the map from Tiled
-        map_name = "data/maps/map.json"
+        map_name = "data/maps/level1.json"
         self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING)
 
         # sprite_list is from Tiled map layers
-        self.door = Door(920, 210)
-        self.wall_list = self.tile_map.sprite_lists["Walls"]
-        self.star_list = self.tile_map.sprite_lists["Stars"]
-        self.spike_list = self.tile_map.sprite_lists["Spike"]
+        self.door = Door(3000, 210)
+        self.bkg_list = self.tile_map.sprite_lists["bkg"]
+        self.spike_list = self.tile_map.sprite_lists["spikes"]
 
-        # Create moving walls
-        self.wall_1 = MovingWall(self.tile_map.sprite_lists["Walls_1"], WALL_1_MOVE_SPEED, WALL_1_MOVE_DISTANCE, 'vertical')
-        self.wall_2 = MovingWall(self.tile_map.sprite_lists["Walls_2"], WALL_2_MOVE_SPEED, WALL_2_MOVE_DISTANCE, 'horizontal')
-        self.wall_3 = MovingWall(self.tile_map.sprite_lists["Walls_3"], WALL_1_MOVE_SPEED, WALL_1_MOVE_DISTANCE, 'vertical')
+        self.ceiling_list = MovingWall(self.tile_map.sprite_lists["ceiling"], 0.2, 400, 'vertical')
 
-        # Set up triggers
-        self.trigger_1_list = self.tile_map.sprite_lists["Trigger_1"]
-        self.trigger_2_list = self.tile_map.sprite_lists["Trigger_2"]
-        self.trigger_3_list = self.tile_map.sprite_lists["Trigger_3"]
+        # Set up triggers and traps
+        self.trig1_list = self.tile_map.sprite_lists["trig1"]
+        self.gap1_list = MovingWall(self.tile_map.sprite_lists["gap1"], 10, 400, 'vertical')
+
+        self.trig2_list = self.tile_map.sprite_lists["trig2"]
+        self.triggered2 = False
+        self.spike2_list = self.tile_map.sprite_lists["spike2"]
+
+        self.trig3_list = self.tile_map.sprite_lists["trig3"]
+        self.gap3_list = MovingWall(self.tile_map.sprite_lists["gap3"], 5, 200, 'horizontal')
+
+        self.trig4_list = self.tile_map.sprite_lists["trig4"]
+
+        self.trig5_list = self.tile_map.sprite_lists["trig5"]
+        self.gap5_list = MovingWall(self.tile_map.sprite_lists["gap5"], 10, 400, 'vertical')
+
+        self.moving_wall_list = [self.gap1_list, self.gap3_list, self.gap5_list]
+        self.vis_sprites_list = [self.bkg_list, self.gap1_list.wall_list, self.gap3_list.wall_list, self.gap5_list.wall_list]
 
         # Set the background color to what is specified in the map
         if self.tile_map.background_color:
@@ -146,7 +154,7 @@ class MyGame(arcade.Window):
         # setup physics engine
         self.physics_engine = arcade.PhysicsEnginePlatformer(
             self.player_sprite, 
-            [self.wall_list, self.wall_1.wall_list, self.wall_2.wall_list, self.wall_3.wall_list], 
+            self.vis_sprites_list, 
             GRAVITY)
 
 
@@ -157,14 +165,13 @@ class MyGame(arcade.Window):
         self.camera_sprites.use()
 
         # draw the sprite lists
+        for sprite_list in self.vis_sprites_list:
+            sprite_list.draw()
         self.door.draw()
         self.player_list.draw()
-        self.wall_list.draw()
-        self.wall_1.wall_list.draw()
-        self.wall_2.wall_list.draw()
-        self.wall_3.wall_list.draw()
-        self.star_list.draw()
         self.spike_list.draw()
+        self.spike2_list.draw()
+        self.ceiling_list.wall_list.draw()
 
         # Run the GLSL code
         if self.particle_run:
@@ -237,14 +244,16 @@ class MyGame(arcade.Window):
             self.jump_pressed = False
             if self.door.move_over:
                 self.level_complete()
+        
+        if not self.ceiling_list.is_moving:
+            self.ceiling_list.start_moving()
 
         # Call update on all sprites
         self.player_list.update()
-        self.star_list.update()
         self.player_list.update_animation()
-        self.wall_1.update()
-        self.wall_2.update()
-        self.wall_3.update()
+        self.ceiling_list.update()
+        for wall_list in self.moving_wall_list:
+            wall_list.update()
         if self.game_on:
             self.physics_engine.update()
         
@@ -262,7 +271,7 @@ class MyGame(arcade.Window):
         else:
             self.clear_anim(0, 0)
 
-        spike_hit = arcade.check_for_collision_with_list(self.player_sprite, self.spike_list)
+        spike_hit = arcade.check_for_collision_with_lists(self.player_sprite, [self.spike_list, self.spike2_list, self.ceiling_list.wall_list])
         if spike_hit:
             self.reset()
 
@@ -272,34 +281,23 @@ class MyGame(arcade.Window):
 
         if not self.game_on:
             return
-
-        # a list of all star sprites that collided with the player sprite
-        star_hit_list = arcade.check_for_collision_with_list(self.player_sprite, self.star_list)
-
-        # kill all the stars that are hit
-        for star in star_hit_list:
-            star.kill()
-            self.score += 1
         
         # trigger traps
-        trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trigger_1_list)
-        if trigger_hit:
-            # print("trigger hit")
-            self.wall_1.start_moving()
-            if self.lvl < 1:
-                self.lvl = 1
+        if not self.gap1_list.triggered:
+            trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trig1_list)
+            if trigger_hit:
+                self.gap1_list.start_moving()
 
-        if (self.lvl >= 1 and self.death > 0) or True:
-            trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trigger_2_list)
+        if not self.triggered2:
+            trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trig2_list)
             if trigger_hit:
-                self.wall_2.start_moving()
-                if self.lvl < 2:
-                    self.lvl = 2
-        
-        if self.death > 0:
-            trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trigger_3_list)
+                self.triggered2 = True
+                self.spike2_list.visible = True
+
+        if not self.gap3_list.triggered:
+            trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trig3_list)
             if trigger_hit:
-                self.wall_3.start_moving()
+                self.gap3_list.start_moving()
 
         # check if touched the door
         collided_w_door = self.door.check_collision(self.player_sprite.left, self.player_sprite.right, self.player_sprite.bottom)
@@ -325,6 +323,7 @@ class MyGame(arcade.Window):
             # If the shader/program doesn't accept the uniform for some reason,
             # ignore and continue — the shader will fallback to using global time.
             pass
+
         self.shake_camera()
         self.particle_run = True
         # record when the particle burst started
@@ -345,11 +344,16 @@ class MyGame(arcade.Window):
         # stop rendering particles
         self.particle_run = False
         self.is_resetting = False
-        # apply the actual reset actions
         self.death += 1
-        self.wall_1.reset()
-        self.wall_2.reset()
-        self.wall_3.reset()
+
+        # reset moving parts
+        self.ceiling_list.reset()
+        for wall_list in self.moving_wall_list:
+            if wall_list.triggered:
+                wall_list.reset()
+        self.triggered2 = False
+        self.spike2_list.visible = False
+
         self.player_sprite.center_x = START_POS[0]
         self.player_sprite.center_y = START_POS[1]
         self.player_list.visible = True
@@ -398,16 +402,7 @@ class MyGame(arcade.Window):
 
         position = Vec2(self.player_sprite.center_x - self.width / 2,
                         self.player_sprite.center_y - self.height / 2)
-        self.camera_sprites.move_to(position, CAMERA_SPEED)
-
-
-    def on_resize(self, width, height):
-        """
-        Resize window
-        Handle the user grabbing the edge and resizing the window.
-        """
-        self.camera_sprites.resize(int(width), int(height))
-        self.camera_gui.resize(int(width), int(height))
+        self.camera_sprites.move_to(position, 0.5)
 
 
     def set_anim(self, y):
