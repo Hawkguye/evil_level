@@ -40,7 +40,7 @@ class MyGame(arcade.Window):
 
     def __init__(self):
         """ initializer """
-        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Evil Level", resizable=True)
+        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Evil Level", resizable=True, vsync=True)
 
         # set location of the window
         self.set_location(100, 100)

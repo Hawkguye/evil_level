@@ -36,7 +36,7 @@ class MyGame(arcade.Window):
 
     def __init__(self):
         """ initializer """
-        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Evil Level")
+        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Evil Level", vsync=True)
 
         self.set_location(50, 50)
         # self.set_mouse_visible(False)
@@ -129,7 +129,7 @@ class MyGame(arcade.Window):
         self.bkg_list = self.tile_map.sprite_lists["bkg"]
         self.spike_list = self.tile_map.sprite_lists["spikes"]
 
-        self.ceiling_list = MovingWall(self.tile_map.sprite_lists["ceiling"], 0.2, 400, 'vertical')
+        self.ceiling_list = MovingWall(self.tile_map.sprite_lists["ceiling"], 0.1, 400, 'vertical')
 
         # Set up triggers and traps
         self.trig1_list = self.tile_map.sprite_lists["trig1"]
@@ -253,6 +253,11 @@ class MyGame(arcade.Window):
         if not self.ceiling_list.is_moving:
             self.ceiling_list.start_moving()
 
+        # earthquake
+        # print(self.time % 1)
+        if self.time % 0.5 < 0.03 and self.time > 0.5:
+            self.earthquake_camera(2.0)
+
         # Call update on all sprites
         self.player_list.update()
         self.player_list.update_animation()
@@ -273,10 +278,10 @@ class MyGame(arcade.Window):
         elif self.right_pressed and not self.left_pressed:
             self.player_sprite.change_x = MOVE_SPEED
 
-        if self.player_sprite.change_x > 0.05:
+        if self.player_sprite.change_x > 0.02:
             # moving right
             self.set_anim(384)
-        elif self.player_sprite.change_x < -0.05:
+        elif self.player_sprite.change_x < -0.02:
             # moving left
             self.set_anim(256)
         else:
@@ -388,6 +393,21 @@ class MyGame(arcade.Window):
         self.jump_pressed = False
         self.door.is_moving = True
         self.shake_camera()
+
+    
+    def earthquake_camera(self, magnitude):
+        """ Shake the camera constantly """
+        # Pick a random direction
+        shake_vector = Vec2(magnitude, magnitude * 0.6)
+        # Frequency of the shake
+        shake_speed = 3.0
+        # How fast to damp the shake
+        shake_damping = 0.9
+        # Do the shake
+        print(f"shake {shake_vector}")
+        self.camera_sprites.shake(shake_vector,
+                                    speed=shake_speed,
+                                    damping=shake_damping)
 
     
     def shake_camera(self):

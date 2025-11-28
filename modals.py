@@ -63,6 +63,7 @@ class Door():
         self.pos_y = y
         self.height = 45
         self.width = 30
+        self.opacity = 255
 
         self.move_speed = 1
         self.move_distance = 60
@@ -72,8 +73,8 @@ class Door():
     
     def draw(self):
         """ draws the door """
-        arcade.draw_rectangle_filled(self.pos_x, self.pos_y, self.width + 10, self.height + 10, (64, 22, 0))
-        arcade.draw_rectangle_filled(self.pos_x, self.pos_y, self.width, self.height, arcade.color.WHITE)
+        arcade.draw_rectangle_filled(self.pos_x, self.pos_y, self.width + 10, self.height + 10, (64, 22, 0, self.opacity))
+        arcade.draw_rectangle_filled(self.pos_x, self.pos_y, self.width, self.height, (255, 255, 255, self.opacity))
     
     def check_collision(self, left, right, bottom):
         """ check the collision of the door w/ an object """
