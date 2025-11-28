@@ -1,2 +1,6 @@
 .venv
+__pycache__
+ldtk
 door_light.glsl
+1.py
+key_remapper.py

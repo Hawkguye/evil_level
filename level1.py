@@ -42,7 +42,7 @@ class MyGame(arcade.Window):
         # self.set_mouse_visible(False)
         arcade.set_background_color((122, 9, 2))
 
-        self.game_on = True
+        self.game_on = False
 
         # sprite lists
         self.player_list = None
@@ -92,6 +92,7 @@ class MyGame(arcade.Window):
         self.PARTICLE_BURST_TIME = 0.5
         # particle shader
         self.particle_run = False
+        self.frame_cnt = 0
         self.time = 0.0
         self.time_particle_start = 0.0
         file_name = "particles.glsl"
@@ -129,7 +130,7 @@ class MyGame(arcade.Window):
         self.bkg_list = self.tile_map.sprite_lists["bkg"]
         self.spike_list = self.tile_map.sprite_lists["spikes"]
 
-        self.ceiling_list = MovingWall(self.tile_map.sprite_lists["ceiling"], 0.1, 400, 'vertical')
+        self.ceiling_list = MovingWall(self.tile_map.sprite_lists["ceiling"], 0.15, 400, 'vertical')
 
         # Set up triggers and traps
         self.trig1_list = self.tile_map.sprite_lists["trig1"]
@@ -160,6 +161,8 @@ class MyGame(arcade.Window):
             self.player_sprite, 
             self.vis_sprites_list, 
             GRAVITY)
+        
+        self.game_on = True
 
 
     def on_draw(self):
@@ -187,9 +190,8 @@ class MyGame(arcade.Window):
 
         # draw the gui
         self.camera_gui.use()
-        arcade.draw_text(f"Score: {self.score}", 50, 550, font_size=16)
         arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
-        arcade.draw_text(f"Deaths: {self.death}", 50, 600, font_size=16)
+        arcade.draw_text(f"Deaths: {self.death}", 50, 550, font_size=16)
         arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
         
     
@@ -229,6 +231,7 @@ class MyGame(arcade.Window):
     def update(self, delta_time):
         """ Movement and game logic """
         self.time += delta_time
+        self.frame_cnt += 1
 
         # If we're currently running the reset particle burst, wait until it finishes
         if self.is_resetting:
@@ -238,9 +241,6 @@ class MyGame(arcade.Window):
             # While the burst is active, do not advance game logic
             return
         
-        if self.door.is_moving:
-            self.door.move_down()
-
         if not self.game_on:
             self.player_sprite.center_x = self.door.pos_x
             self.player_sprite.center_y = self.door.pos_y
@@ -255,17 +255,18 @@ class MyGame(arcade.Window):
 
         # earthquake
         # print(self.time % 1)
-        if self.time % 0.5 < 0.03 and self.time > 0.5:
-            self.earthquake_camera(2.0)
+        # if self.frame_cnt % 20 == 0 and self.time > 0.5:
+        #     self.earthquake_camera(2.0)
 
         # Call update on all sprites
+        self.door.update()
         self.player_list.update()
         self.player_list.update_animation()
-        self.ceiling_list.update()
         for wall_list in self.moving_wall_list:
             wall_list.update()
         if self.game_on:
             self.physics_engine.update()
+            self.ceiling_list.update()
         
         # Calculate speed based on the keys pressed, if in air, does not stop immedietly
         self.player_sprite.change_x *= 0.95
@@ -320,6 +321,14 @@ class MyGame(arcade.Window):
             if trigger_hit:
                 self.triggered4 = True
                 print("trig4 touched")
+                # door moves, ceiling comes down faster
+                self.door.start_moving_right(5, 300)
+                self.ceiling_list.move_speed = 0.3
+
+        if self.triggered4 and not self.gap5_list.triggered:
+            trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trig5_list)
+            if trigger_hit:
+                self.gap5_list.start_moving()
 
         # check if touched the door
         collided_w_door = self.door.check_collision(self.player_sprite.left, self.player_sprite.right, self.player_sprite.bottom)
@@ -371,6 +380,7 @@ class MyGame(arcade.Window):
         self.death += 1
 
         # reset moving parts
+        self.door.reset()
         self.ceiling_list.reset()
         for wall_list in self.moving_wall_list:
             if wall_list.triggered:
@@ -391,7 +401,7 @@ class MyGame(arcade.Window):
         self.left_pressed = False
         self.right_pressed = False
         self.jump_pressed = False
-        self.door.is_moving = True
+        self.door.start_moving_down()
         self.shake_camera()
 
     
@@ -400,11 +410,11 @@ class MyGame(arcade.Window):
         # Pick a random direction
         shake_vector = Vec2(magnitude, magnitude * 0.6)
         # Frequency of the shake
-        shake_speed = 3.0
+        shake_speed = 1.0
         # How fast to damp the shake
         shake_damping = 0.9
         # Do the shake
-        print(f"shake {shake_vector}")
+        # print(f"shake {shake_vector}")
         self.camera_sprites.shake(shake_vector,
                                     speed=shake_speed,
                                     damping=shake_damping)
