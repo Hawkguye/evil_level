@@ -201,22 +201,22 @@ class MyGame(arcade.Window):
         """
         if not self.game_on:
             return
-        if key == arcade.key.UP or key == arcade.key.SPACE:
+        if key == arcade.key.UP or key == arcade.key.SPACE or key == arcade.key.W:
             self.jump_pressed = True
-        elif key == arcade.key.LEFT:
+        if key == arcade.key.LEFT or key == arcade.key.A:
             self.left_pressed = True
-        elif key == arcade.key.RIGHT:
+        if key == arcade.key.RIGHT or key == arcade.key.D:
             self.right_pressed = True
 
 
     def on_key_release(self, key, modifiers):
         """Called when the user releases a key. """
 
-        if key == arcade.key.UP or key == arcade.key.SPACE:
+        if key == arcade.key.UP or key == arcade.key.SPACE or key == arcade.key.W:
             self.jump_pressed = False
-        elif key == arcade.key.LEFT:
+        if key == arcade.key.LEFT or key == arcade.key.A:
             self.left_pressed = False
-        elif key == arcade.key.RIGHT:
+        if key == arcade.key.RIGHT or key == arcade.key.D:
             self.right_pressed = False
 
 
@@ -255,8 +255,11 @@ class MyGame(arcade.Window):
 
         # earthquake
         # print(self.time % 1)
-        # if self.frame_cnt % 20 == 0 and self.time > 0.5:
-        #     self.earthquake_camera(2.0)
+        if self.game_on and self.frame_cnt % 20 == 0 and self.time > 0.5:
+            if not self.triggered4:
+                self.earthquake_camera(1.5, 0.4)
+            else:
+                self.earthquake_camera(2.0, 0.9)
 
         # Call update on all sprites
         self.door.update()
@@ -269,7 +272,9 @@ class MyGame(arcade.Window):
             self.ceiling_list.update()
         
         # Calculate speed based on the keys pressed, if in air, does not stop immedietly
-        self.player_sprite.change_x *= 0.95
+        self.player_sprite.change_x *= 0.92
+        # self.player_sprite.change_x = 0
+
         if self.physics_engine.can_jump():
             self.player_sprite.change_x = 0
             if self.jump_pressed:
@@ -405,16 +410,16 @@ class MyGame(arcade.Window):
         self.shake_camera()
 
     
-    def earthquake_camera(self, magnitude):
+    def earthquake_camera(self, magnitude, shake_damping):
         """ Shake the camera constantly """
-        # Pick a random direction
-        shake_vector = Vec2(magnitude, magnitude * 0.6)
-        # Frequency of the shake
+        
+        shake_direction = random.random() * 2 * math.pi
+        shake_vector = Vec2(
+            math.cos(shake_direction) * magnitude,
+            math.sin(shake_direction) * magnitude
+        )
+        # shake_vector = Vec2(magnitude, magnitude * 0.6)
         shake_speed = 1.0
-        # How fast to damp the shake
-        shake_damping = 0.9
-        # Do the shake
-        # print(f"shake {shake_vector}")
         self.camera_sprites.shake(shake_vector,
                                     speed=shake_speed,
                                     damping=shake_damping)

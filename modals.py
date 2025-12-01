@@ -99,6 +99,8 @@ class Door():
         self.pos_x = self.init_x
         self.pos_y = self.init_y
         self.opacity = 255
+        self.is_moving = False
+        self.move_direction = None
         self.can_be_touched = True
     
     def start_moving_down(self):
@@ -137,7 +139,7 @@ class Door():
 
             elif self.move_direction == 'right':
                 # appear back at spawn
-                self.pos_x = 250
+                self.pos_x = 200
                 self.pos_y = 180
                 self.opacity = 255
                 self.can_be_touched = True
