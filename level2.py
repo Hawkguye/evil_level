@@ -10,7 +10,7 @@ import math
 import time
 from pyglet.math import Vec2
 
-from modals import MovingWall, Door
+from modals import MovingWall, Door, Button
 
 # constants
 SPRITE_SCALING_PLAYER = 0.25
@@ -28,7 +28,7 @@ CAMERA_OFFSET_Y = 200
 
 START_POS = (250, 300)
 
-CAMERA_POS = [Vec2(0, 0), Vec2(0, 200), Vec2(900, 200)]
+CAMERA_POS = [Vec2(0, 0), Vec2(0, 200), Vec2(900, 200), Vec2(1800, 200)]
 
 SPRITE_PATH = "data/sprites/sprite.png"
 
@@ -62,6 +62,12 @@ class MyGame(arcade.Window):
         self.gap2_list = None
         self.trig3_list = None
         self.gap3_list = None
+        self.realspike_list = None
+        self.fakespike_list = None
+        self.fakerealspike_list = None
+        self.button1 = None
+        self.button1on = False
+        self.realspike_on = True
         
         # player info
         self.death = 0
@@ -126,6 +132,9 @@ class MyGame(arcade.Window):
         self.background = self.tile_map.sprite_lists["background"]
         self.platform_list = self.tile_map.sprite_lists["platforms"]
         self.spike_list = self.tile_map.sprite_lists["spikes"]
+        self.realspike_list = self.tile_map.sprite_lists["realspike"]
+        self.fakespike_list = self.tile_map.sprite_lists["fakespike"]
+        self.fakerealspike_list = self.tile_map.sprite_lists["fakerealspike"]
 
         # Set up triggers and traps
         self.trig1_list = self.tile_map.sprite_lists["trig1"]
@@ -137,6 +146,7 @@ class MyGame(arcade.Window):
         self.trig3_list = self.tile_map.sprite_lists["trig3"]
         self.gap3_list = MovingWall(self.tile_map.sprite_lists["gap3"], 8, 96, 'horizontal')
 
+        self.button1 = Button(982, 450)
 
         self.moving_wall_list = [self.gap1_list, self.gap2_list, self.gap3_list]
         self.vis_sprites_list = [self.platform_list, self.gap1_list.wall_list, self.gap2_list.wall_list, self.gap3_list.wall_list]
@@ -158,11 +168,15 @@ class MyGame(arcade.Window):
 
         self.background.draw()
         self.door.draw()
+        self.button1.draw()
+        self.spike_list.draw()
+        self.realspike_list.draw()
+        self.fakespike_list.draw()
+        self.fakerealspike_list.draw()
         self.player_list.draw()
         # draw the sprite lists
         for sprite_list in self.vis_sprites_list:
             sprite_list.draw()
-        self.spike_list.draw()
 
         # Run the GLSL code
         if self.particle_run:
@@ -267,12 +281,29 @@ class MyGame(arcade.Window):
         if not self.game_on:
             return
         
+        # spike rhythm part
+        if self.button1on:
+            if self.frame_cnt % 90 == 0:
+                if self.realspike_on == True:
+                    self.realspike_list.visible = False
+                    self.realspike_on = False
+                    self.shake_camera()
+                else:
+                    self.realspike_list.visible = True
+                    self.realspike_on = True
+                    self.shake_camera()
+        
         spike_hit = arcade.check_for_collision_with_list(self.player_sprite, self.spike_list)
         if spike_hit:
             self.reset()
+        
+        if self.realspike_on:
+            spike_hit = arcade.check_for_collision_with_lists(self.player_sprite, [self.realspike_list, self.fakerealspike_list])
+            if spike_hit:
+                self.reset()
 
         # out of limit, death
-        if self.player_sprite.center_y < 0:
+        if self.player_sprite.center_y < 180:
             self.reset()
 
         # check if touched the door
@@ -298,9 +329,23 @@ class MyGame(arcade.Window):
             if trigger_hit:
                 self.gap3_list.start_moving()
 
+        trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.button1.sprite_list)
+        if not self.button1.triggered and trigger_hit:
+            self.button1.touched()
+            self.button1on = True
+            self.frame_cnt = -1
+        elif self.button1.triggered and not trigger_hit:
+            self.button1.reset()
+
         # change stages
-        if self.stage != 2 and self.player_sprite.center_x > 900:
+        if self.stage != 1 and self.player_sprite.center_x < 890:
+            self.stage = 1
+            self.update_camera_pos()
+        if self.stage != 2 and self.player_sprite.center_x > 890 and self.player_sprite.center_x < 1820:
             self.stage = 2
+            self.update_camera_pos()
+        if self.stage != 3 and self.player_sprite.center_x > 1820:
+            self.stage = 3
             self.update_camera_pos()
         # Scroll the screen to the player
         # self.scroll_to_player()
@@ -335,6 +380,7 @@ class MyGame(arcade.Window):
         self.player_sprite.change_x = 0
         self.player_sprite.change_y = 0
         self.player_list.visible = False
+        self.button1on = False
         arcade.print_timings()
 
     def finish_reset(self):
@@ -391,7 +437,8 @@ class MyGame(arcade.Window):
 
     def update_camera_pos(self):
         """ update camera position, transition the 3 stages """
-        self.camera_sprites.move_to(CAMERA_POS[self.stage], 0.02)
+        self.view_left = CAMERA_POS[self.stage].x
+        self.camera_sprites.move_to(CAMERA_POS[self.stage], 0.05)
 
 
     def scroll_to_player(self):

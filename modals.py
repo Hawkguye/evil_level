@@ -160,3 +160,30 @@ class Door():
             # fade out as the door moves
             self.opacity = max(0, 255 * (1.0 - self.moved / self.move_distance))
     
+
+class Button():
+    def __init__(self, pos_x, pos_y):
+        """ initializer """
+        self.pos_x = pos_x
+        self.pos_y = pos_y
+        self.triggered = False
+        self.sprite_list = arcade.SpriteList()
+        self.sprite1 = arcade.Sprite("data/sprites/button1.png", scale=0.25, center_x=pos_x, center_y=pos_y, flipped_diagonally=True)
+        self.sprite2 = arcade.Sprite("data/sprites/button2.png", scale=0.25, center_x=pos_x, center_y=pos_y, flipped_diagonally=True)
+        self.sprite2.visible = False
+        self.sprite_list.append(self.sprite1)
+        self.sprite_list.append(self.sprite2)
+    
+    def draw(self):
+        self.sprite_list.draw()
+    
+    def touched(self):
+        self.triggered = True
+        self.sprite1.visible = False
+        self.sprite2.visible = True
+    
+    def reset(self):
+        self.triggered = False
+        self.sprite1.visible = True
+        self.sprite2.visible = False
+    

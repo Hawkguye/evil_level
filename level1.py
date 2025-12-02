@@ -175,6 +175,7 @@ class MyGame(arcade.Window):
         self.background.draw()
         self.door.draw()
         self.player_list.draw()
+        self.player_list.draw_hit_boxes()
         self.ceiling_list.wall_list.draw()
         # draw the sprite lists
         for sprite_list in self.vis_sprites_list:
@@ -330,7 +331,7 @@ class MyGame(arcade.Window):
                 print("trig4 touched")
                 # door moves, ceiling comes down faster
                 self.door.start_moving_right(5, 300)
-                self.ceiling_list.move_speed = 0.3
+                self.ceiling_list.move_speed = 0.4
                 self.arrow_sprite.visible = True
 
         if self.triggered4 and not self.gap5_list.triggered:
