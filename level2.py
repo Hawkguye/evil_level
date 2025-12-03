@@ -35,16 +35,14 @@ CAMERA_POS = [Vec2(0, 0), Vec2(0, 200), Vec2(900, 200), Vec2(1700, 200)]
 SPRITE_PATH = "data/sprites/sprite.png"
 
 
-class MyGame(arcade.Window):
+class Level2(arcade.View):
     """ windows class """
 
     def __init__(self):
         """ initializer """
-        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Evil Level", vsync=True)
+        super().__init__()
 
-        self.set_location(50, 50)
         # self.set_mouse_visible(False)
-        arcade.set_background_color((122, 9, 2))
 
         self.game_on = False
 
@@ -86,6 +84,7 @@ class MyGame(arcade.Window):
         self.right_pressed = False
         self.physics_engine = None
         self.tile_map = None
+        self.frames_since_land = 0
         
         # CAMERAS
         self.camera_sprites = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -105,14 +104,15 @@ class MyGame(arcade.Window):
         self.time = 0.0
         self.time_particle_start = 0.0
         file_name = "particles.glsl"
-        self.shadertoy = Shadertoy(size=self.get_size(),
+        self.shadertoy = Shadertoy(size=(SCREEN_WIDTH, SCREEN_HEIGHT),
                                    main_source=open(file_name).read())
         
         arcade.enable_timings()
 
 
-    def setup(self):
+    def on_show_view(self):
         """ set up the game and initialize the variables """
+        arcade.set_background_color((163, 100, 222))
         # sprite lists
         self.player_list = arcade.SpriteList()
         self.platform_list = arcade.SpriteList()
@@ -182,7 +182,7 @@ class MyGame(arcade.Window):
         self.fakerealspike_list.draw()
         self.fakeplatform_list.draw()
         self.player_list.draw()
-        self.player_list.draw_hit_boxes()
+        # self.player_list.draw_hit_boxes()
         # draw the sprite lists
         for sprite_list in self.vis_sprites_list:
             sprite_list.draw()
@@ -281,13 +281,18 @@ class MyGame(arcade.Window):
         self.player_sprite.change_x *= 0.92
         # self.player_sprite.change_x = 0
 
-        if self.physics_engine.can_jump() or self.can_jump:
-            self.can_jump = True
+        
+        if self.physics_engine.can_jump():
+            self.frames_since_land = 0
             self.player_sprite.change_x = 0
             if self.jump_pressed:
                 self.player_sprite.change_y = JUMP_SPEED
-        if not self.physics_engine.can_jump():
-            self.can_jump = False
+        else:
+            # coyote time.
+            self.frames_since_land += 1
+            if self.jump_pressed and self.frames_since_land <= 3 and self.player_sprite.change_y < 2:
+                self.player_sprite.change_y = JUMP_SPEED
+
         if self.left_pressed and not self.right_pressed:
             if not self.control_inverted:
                 self.player_sprite.change_x = -MOVE_SPEED
@@ -500,7 +505,7 @@ class MyGame(arcade.Window):
             self.view_left -= left_boundary - self.player_sprite.left
 
         # Scroll right
-        right_boundary = self.view_left + self.width - VIEWPORT_MARGIN
+        right_boundary = self.view_left + SCREEN_WIDTH - VIEWPORT_MARGIN
         if self.player_sprite.right > right_boundary:
             self.view_left += self.player_sprite.right - right_boundary
 
@@ -530,13 +535,3 @@ class MyGame(arcade.Window):
         self.door.move_over = False
         self.shake_camera()
         print("level complete")
-
-
-def main():
-    """ main method """
-    window = MyGame()
-    window.setup()
-    arcade.run()
-
-if __name__ == "__main__":
-    main()

@@ -609,7 +609,7 @@
  "tilesets":[
         {
          "firstgid":1,
-         "source":"bg_tileset.json"
+         "source":"level1_tileset.json"
         }],
  "tilewidth":128,
  "type":"map",

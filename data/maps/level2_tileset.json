@@ -1,0 +1,14 @@
+{ "columns":4,
+ "image":"..\/sprites\/level2_tileset.png",
+ "imageheight":512,
+ "imagewidth":512,
+ "margin":0,
+ "name":"level2_tileset",
+ "spacing":0,
+ "tilecount":16,
+ "tiledversion":"1.10.2",
+ "tileheight":128,
+ "tilewidth":128,
+ "type":"tileset",
+ "version":1.1
+}
