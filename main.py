@@ -21,6 +21,11 @@ class MenuView(arcade.View):
         self.v_box.add(level1_button.with_space_around(bottom=20))
         level1_button.on_click = self.start_level1
 
+        
+        level2_button = arcade.gui.UIFlatButton(text="Level 2", width=200)
+        self.v_box.add(level2_button.with_space_around(bottom=20))
+        level2_button.on_click = self.start_level2
+
         self.manager.add(
             arcade.gui.UIAnchorWidget(
                 anchor_x="center_x",
@@ -28,9 +33,13 @@ class MenuView(arcade.View):
                 child=self.v_box)
         )
 
-    def start_level1(self):
+    def start_level1(self, event):
         level1_view = Level1()
         self.window.show_view(level1_view)
+    
+    def start_level2(self, event):
+        level2_view = Level2()
+        self.window.show_view(level2_view)
 
     def on_show_view(self):
         arcade.set_background_color((255, 255, 255))
@@ -38,7 +47,7 @@ class MenuView(arcade.View):
     def on_draw(self):
         arcade.start_render()
         self.manager.draw()
-        arcade.draw_text("Evil Level", 500, 500, (0, 0, 0), 32, anchor_x="center")
+        arcade.draw_text("Evil Level", 500, 400, (0, 0, 0), 32, anchor_x="center")
         
 
 class GameWindow(arcade.Window):
