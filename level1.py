@@ -121,7 +121,7 @@ class MyGame(arcade.Window):
 
         # set up the map from Tiled
         map_name = "data/maps/level1.json"
-        self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING)
+        self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING, hit_box_algorithm="Detailed")
 
         # sprite_list is from Tiled map layers
         self.door = Door(2100, 180)

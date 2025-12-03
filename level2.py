@@ -71,6 +71,7 @@ class MyGame(arcade.Window):
         self.button1 = None
         self.button1on = False
         self.realspike_on = True
+        self.inverted_text_on = False
         
         # player info
         self.death = 0
@@ -79,6 +80,7 @@ class MyGame(arcade.Window):
         self.control_inverted = False
 
         # simple physics engine
+        self.can_jump = False
         self.jump_pressed = False
         self.left_pressed = False
         self.right_pressed = False
@@ -121,7 +123,7 @@ class MyGame(arcade.Window):
         anim = arcade.AnimationKeyframe(1, 10, texture)
         self.player_sprite.frames.append(anim)
         self.player_sprite.scale = SPRITE_SCALING_PLAYER
-        self.player_sprite.set_hit_box([(-32, -48), (32, -48), (32, 48), (-32, 48)])
+        self.player_sprite.set_hit_box([(-24, -48), (24, -48), (24, 48), (-24, 48)])
 
         # set up the player sprite
         self.player_sprite.center_x, self.player_sprite.center_y = START_POS
@@ -129,7 +131,7 @@ class MyGame(arcade.Window):
 
         # set up the map from Tiled
         map_name = "data/maps/level2.json"
-        self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING)
+        self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING, hit_box_algorithm="Detailed")
 
         # sprite_list is from Tiled map layers
         self.door = Door(2620, 310)
@@ -143,13 +145,13 @@ class MyGame(arcade.Window):
 
         # Set up triggers and traps
         self.trig1_list = self.tile_map.sprite_lists["trig1"]
-        self.gap1_list = MovingWall(self.tile_map.sprite_lists["gap1"], 10, 400, 'vertical')
+        self.gap1_list = MovingWall(self.tile_map.sprite_lists["gap1"], 8, 400, 'vertical')
 
         self.trig2_list = self.tile_map.sprite_lists["trig2"]
-        self.gap2_list = MovingWall(self.tile_map.sprite_lists["gap2"], 10, 400, 'vertical')
+        self.gap2_list = MovingWall(self.tile_map.sprite_lists["gap2"], 8, 400, 'vertical')
 
         self.trig3_list = self.tile_map.sprite_lists["trig3"]
-        self.gap3_list = MovingWall(self.tile_map.sprite_lists["gap3"], 8, 96, 'horizontal')
+        self.gap3_list = MovingWall(self.tile_map.sprite_lists["gap3"], 6, 96, 'horizontal')
 
         self.button1 = Button(982, 450)
 
@@ -180,6 +182,7 @@ class MyGame(arcade.Window):
         self.fakerealspike_list.draw()
         self.fakeplatform_list.draw()
         self.player_list.draw()
+        self.player_list.draw_hit_boxes()
         # draw the sprite lists
         for sprite_list in self.vis_sprites_list:
             sprite_list.draw()
@@ -196,6 +199,9 @@ class MyGame(arcade.Window):
         arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 550, font_size=16)
         arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
+        if self.inverted_text_on:
+            arcade.draw_text(f"Something has changed within me.", 500, 100, (73, 0, 138), anchor_x="center", font_size=16)
+            arcade.draw_text(f"Something is not the same.", 500, 70, (73, 0, 138), anchor_x="center", font_size=16)
         
     
     def on_key_press(self, key, modifiers):
@@ -263,21 +269,25 @@ class MyGame(arcade.Window):
             self.physics_engine.update()
         
         if self.stage == 3 and abs(self.camera_sprites.position.x - CAMERA_POS[3].x) < 10 and not self.control_inverted:
-            self.frame_cnt = -60
-        if self.stage == 3 and not self.control_inverted and self.frame_cnt >= -10 and self.frame_cnt < 0:
-            # WTF
-            print("inverted")
             self.shake_camera()
             self.control_inverted = True
+            self.inverted_text_on = True
+            self.frame_cnt = 0
+        
+        if self.inverted_text_on and self.frame_cnt > 150:
+            self.inverted_text_on = False
 
         # Calculate speed based on the keys pressed, if in air, does not stop immedietly
         self.player_sprite.change_x *= 0.92
         # self.player_sprite.change_x = 0
 
-        if self.physics_engine.can_jump():
+        if self.physics_engine.can_jump() or self.can_jump:
+            self.can_jump = True
             self.player_sprite.change_x = 0
             if self.jump_pressed:
                 self.player_sprite.change_y = JUMP_SPEED
+        if not self.physics_engine.can_jump():
+            self.can_jump = False
         if self.left_pressed and not self.right_pressed:
             if not self.control_inverted:
                 self.player_sprite.change_x = -MOVE_SPEED
@@ -306,11 +316,13 @@ class MyGame(arcade.Window):
             if self.frame_cnt % 100 == 0:
                 if self.realspike_on == True:
                     self.realspike_list.visible = False
+                    self.fakespike_list.alpha = 120
                     self.realspike_on = False
                     self.shake_camera()
                 else:
                     self.realspike_list.visible = True
                     self.realspike_on = True
+                    self.fakespike_list.alpha = 255
                     self.shake_camera()
         
         spike_hit = arcade.check_for_collision_with_lists(self.player_sprite, [self.spike_list, self.fakerealspike_list])
@@ -410,7 +422,9 @@ class MyGame(arcade.Window):
         self.button1on = False
         self.realspike_list.visible = True
         self.realspike_on = True
+        self.fakespike_list.alpha = 255
         self.control_inverted = False
+        self.inverted_text_on = False
         arcade.print_timings()
 
     def finish_reset(self):
@@ -468,7 +482,8 @@ class MyGame(arcade.Window):
     def update_camera_pos(self):
         """ update camera position, transition the 3 stages """
         self.view_left = CAMERA_POS[self.stage].x
-        self.camera_sprites.move_to(CAMERA_POS[self.stage], 0.05)
+        speed = 0.2 if self.stage == 3 else 0.05
+        self.camera_sprites.move_to(CAMERA_POS[self.stage], speed)
 
 
     def scroll_to_player(self):
