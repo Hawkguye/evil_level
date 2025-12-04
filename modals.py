@@ -36,7 +36,7 @@ class MovingWall():
             else:
                 sprite.center_x -= delta
 
-        self.moved_distance += delta
+        self.moved_distance += abs(delta)
 
         # stop when we've moved the target distance
         if self.moved_distance >= self.move_distance:
@@ -106,6 +106,7 @@ class Door():
     def start_moving_down(self):
         """ should be called when game ends """
         self.is_moving = True
+        self.move_over = False
         self.move_direction = 'down'
         self.moved = 0
         self.move_speed = 1
@@ -162,14 +163,14 @@ class Door():
     
 
 class Button():
-    def __init__(self, pos_x, pos_y):
+    def __init__(self, pos_x, pos_y, flipped_diagonally = True):
         """ initializer """
         self.pos_x = pos_x
         self.pos_y = pos_y
         self.triggered = False
         self.sprite_list = arcade.SpriteList()
-        self.sprite1 = arcade.Sprite("data/sprites/button1.png", scale=0.25, center_x=pos_x, center_y=pos_y, flipped_diagonally=True)
-        self.sprite2 = arcade.Sprite("data/sprites/button2.png", scale=0.25, center_x=pos_x, center_y=pos_y, flipped_diagonally=True)
+        self.sprite1 = arcade.Sprite("data/sprites/button1.png", scale=0.25, center_x=pos_x, center_y=pos_y, flipped_diagonally=flipped_diagonally)
+        self.sprite2 = arcade.Sprite("data/sprites/button2.png", scale=0.25, center_x=pos_x, center_y=pos_y, flipped_diagonally=flipped_diagonally)
         self.sprite2.visible = False
         self.sprite_list.append(self.sprite1)
         self.sprite_list.append(self.sprite2)

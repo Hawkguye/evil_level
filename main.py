@@ -1,5 +1,6 @@
 import arcade
 import arcade.gui
+import time
 
 from level1 import Level1
 from level2 import Level2
@@ -12,6 +13,7 @@ class MenuView(arcade.View):
     """ Menu View """
     def __init__(self, window):
         super().__init__(window)
+        self.is_loading = False
         arcade.set_background_color((255, 255, 255))
         self.manager = arcade.gui.UIManager()
         self.manager.enable()
@@ -34,12 +36,10 @@ class MenuView(arcade.View):
         )
 
     def start_level1(self, event):
-        level1_view = Level1()
-        self.window.show_view(level1_view)
+        self.window.show_view(self.window.level1_view)
     
     def start_level2(self, event):
-        level2_view = Level2()
-        self.window.show_view(level2_view)
+        self.window.show_view(self.window.level2_view)
 
     def on_show_view(self):
         arcade.set_background_color((255, 255, 255))
@@ -48,6 +48,8 @@ class MenuView(arcade.View):
         arcade.start_render()
         self.manager.draw()
         arcade.draw_text("Evil Level", 500, 400, (0, 0, 0), 32, anchor_x="center")
+        if self.is_loading:
+            arcade.draw_text("loading level...", 500, 100, (0, 0, 0), 32, anchor_x="center")
         
 
 class GameWindow(arcade.Window):
@@ -58,7 +60,10 @@ class GameWindow(arcade.Window):
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Evil Level", vsync=True)
         self.set_location(50, 50)
         self.menu_view = MenuView(self)
-        
+        self.level1_view = Level1(self)
+        self.level2_view = Level2(self)
+        arcade.enable_timings()
+
     def setup(self):
         self.show_view(self.menu_view)
 

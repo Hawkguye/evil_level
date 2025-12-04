@@ -38,9 +38,9 @@ SPRITE_PATH = "data/sprites/sprite.png"
 class Level2(arcade.View):
     """ windows class """
 
-    def __init__(self):
+    def __init__(self, window):
         """ initializer """
-        super().__init__()
+        super().__init__(window)
 
         # self.set_mouse_visible(False)
 
@@ -107,7 +107,7 @@ class Level2(arcade.View):
         self.shadertoy = Shadertoy(size=(SCREEN_WIDTH, SCREEN_HEIGHT),
                                    main_source=open(file_name).read())
         
-        arcade.enable_timings()
+        # arcade.enable_timings()
 
 
     def on_show_view(self):
@@ -208,6 +208,8 @@ class Level2(arcade.View):
         """
         Called whenever a key is pressed.
         """
+        if key == arcade.key.ESCAPE:
+            self.window.show_view(self.window.menu_view)
         if not self.game_on:
             return
         if key == arcade.key.UP or key == arcade.key.SPACE or key == arcade.key.W:
@@ -535,3 +537,14 @@ class Level2(arcade.View):
         self.door.move_over = False
         self.shake_camera()
         print("level complete")
+        # self.window.show_view(self.window.menu_view)
+
+
+def main():
+    """ main method """
+    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, "level 2", vsync=True)
+    window.show_view(Level2(window))
+    arcade.run()
+
+if __name__ == "__main__":
+    main()
