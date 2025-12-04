@@ -1,8 +1,3 @@
-"""
-Level devel-ish platformer demo
-Victor Qin
-"""
-
 import arcade
 from arcade.experimental import Shadertoy
 import random
@@ -543,6 +538,7 @@ class Level2(arcade.View):
 def main():
     """ main method """
     window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, "level 2", vsync=True)
+    arcade.enable_timings()
     window.show_view(Level2(window))
     arcade.run()
 

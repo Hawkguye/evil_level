@@ -1,8 +1,3 @@
-"""
-Level devel-ish platformer demo
-Victor Qin
-"""
-
 import arcade
 from arcade.experimental import Shadertoy
 import random
@@ -17,14 +12,14 @@ SPRITE_SCALING_PLAYER = 0.25
 TILE_SCALING = 0.25
 MOVE_SPEED = 3
 JUMP_SPEED = 20
-GRAVITY = 0.2
+GRAVITY = 0.6
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 600
 
 VIEWPORT_MARGIN = 400
 CAMERA_SPEED = 0.5
-CAMERA_OFFSET_Y = 200
+CAMERA_OFFSET_Y = 0
 
 # start x: 250
 # stage 3: 1850
@@ -57,6 +52,8 @@ class Level3(arcade.View):
         self.wall1_list = None
         self.button1 = None
         self.button1on = False
+        self.trig2_list = None
+        self.platform2_list = None
         
         # player info
         self.death = 0
@@ -126,12 +123,14 @@ class Level3(arcade.View):
         self.spike_list = self.tile_map.sprite_lists["spikes"]
 
         # Set up triggers and traps
-        self.wall1_list = MovingWall(self.tile_map.sprite_lists["wall1"], -20, 300, 'horizontal')
+        self.wall1_list = MovingWall(self.tile_map.sprite_lists["wall1"], -20, 128, 'horizontal')
+        self.trig2_list = self.tile_map.sprite_lists["trig2"]
+        self.platform2_list = MovingWall(self.tile_map.sprite_lists["platform2"], -5, 96, 'horizontal')
 
         self.button1 = Button(200, 110, False)
 
-        self.moving_wall_list = [self.wall1_list]
-        self.vis_sprites_list = [self.platform_list, self.wall1_list.wall_list]
+        self.moving_wall_list = [self.wall1_list, self.platform2_list]
+        self.vis_sprites_list = [self.platform_list, self.platform2_list.wall_list]
 
         # setup physics engine
         self.physics_engine = arcade.PhysicsEnginePlatformer(
@@ -153,6 +152,7 @@ class Level3(arcade.View):
         self.button1.draw()
         self.spike_list.draw()
         self.player_list.draw()
+        self.wall1_list.wall_list.draw()
         # self.player_list.draw_hit_boxes()
         # draw the sprite lists
         for sprite_list in self.vis_sprites_list:
@@ -240,11 +240,11 @@ class Level3(arcade.View):
         
 
         # Calculate speed based on the keys pressed, if in air, does not stop immedietly
-        self.player_sprite.change_x *= 0.92
+        self.player_sprite.change_x *= 0.95
         # self.player_sprite.change_x = 0
         if self.physics_engine.can_jump():
             self.frames_since_land = 0
-            self.player_sprite.change_x = 0
+            self.player_sprite.change_x *= 0.5
             if self.jump_pressed:
                 self.player_sprite.change_y = JUMP_SPEED
         else:
@@ -253,10 +253,23 @@ class Level3(arcade.View):
             if self.jump_pressed and self.frames_since_land <= 3 and self.player_sprite.change_y < 2:
                 self.player_sprite.change_y = JUMP_SPEED
 
-        if self.left_pressed and not self.right_pressed:
-            self.player_sprite.change_x = -MOVE_SPEED
+        
+        # first moving wall overwrites the movement
+        trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.wall1_list.wall_list)
+        if trigger_hit:
+            self.player_sprite.change_x = -self.wall1_list.move_speed
+            if self.jump_pressed:
+                self.player_sprite.change_y = JUMP_SPEED
+        elif self.left_pressed and not self.right_pressed:
+            if abs(self.player_sprite.change_x) < MOVE_SPEED:
+                self.player_sprite.change_x -= 1.5
+            else: 
+                self.player_sprite.change_x = -MOVE_SPEED
         elif self.right_pressed and not self.left_pressed:
-            self.player_sprite.change_x = MOVE_SPEED
+            if abs(self.player_sprite.change_x) < MOVE_SPEED:
+                self.player_sprite.change_x += 1.5
+            else: 
+                self.player_sprite.change_x = MOVE_SPEED
 
         # handle animation
         if self.player_sprite.change_x > 0.02:
@@ -289,6 +302,10 @@ class Level3(arcade.View):
         if self.button1on:
             self.wall1_list.start_moving()
         
+        if not self.platform2_list.triggered:
+            trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trig2_list)
+            if trigger_hit:
+                self.platform2_list.start_moving()
 
         # change stages
         if self.stage != 1 and self.player_sprite.center_x < 890:
@@ -443,6 +460,7 @@ class Level3(arcade.View):
 def main():
     """ main method """
     window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, "level 3", vsync=True)
+    arcade.enable_timings()
     window.show_view(Level3(window))
     arcade.run()
 
