@@ -55,6 +55,8 @@ class Level3(arcade.View):
         self.button1on = False
         self.trig2_list = None
         self.platform2_list = None
+        self.platform3_list = None
+        self.platform4_list = None
         
         # player info
         self.death = 0
@@ -128,11 +130,13 @@ class Level3(arcade.View):
         self.wall1_list = MovingWall(self.tile_map.sprite_lists["wall1"], -20, 128, 'horizontal')
         self.trig2_list = self.tile_map.sprite_lists["trig2"]
         self.platform2_list = MovingWall(self.tile_map.sprite_lists["platform2"], -5, 96, 'horizontal')
+        self.platform3_list = MovingWall(self.tile_map.sprite_lists["platform3"], -2, 512, 'horizontal')
+        self.platform4_list = MovingWall(self.tile_map.sprite_lists["platform4"], 2, 512, 'horizontal')
 
         self.button1 = Button(200, 110, False)
 
-        self.moving_wall_list = [self.wall1_list, self.platform2_list]
-        self.vis_sprites_list = [self.platform_list, self.platform2_list.wall_list]
+        self.moving_wall_list = [self.wall1_list, self.platform2_list, self.platform3_list, self.platform4_list]
+        self.vis_sprites_list = [self.platform_list, self.platform2_list.wall_list, self.platform3_list.wall_list, self.platform4_list.wall_list]
 
         # setup physics engine
         self.physics_engine = arcade.PhysicsEnginePlatformer(
@@ -314,6 +318,11 @@ class Level3(arcade.View):
             trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.trig2_list)
             if trigger_hit:
                 self.platform2_list.start_moving()
+        
+        if not self.platform3_list.triggered and self.player_sprite.center_x > 1100:
+            self.platform3_list.start_moving()
+            self.platform4_list.start_moving()
+        
 
         # change stages
         if self.stage != 1 and self.player_sprite.center_x < 890:
@@ -323,7 +332,8 @@ class Level3(arcade.View):
             self.stage = 2
             self.update_camera_pos()
         # Scroll the screen to the player
-        # self.scroll_to_player()
+        if self.stage == 2:
+            self.scroll_to_player()
 
     def reset(self):
         """
