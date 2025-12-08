@@ -12,12 +12,13 @@ SPRITE_SCALING_PLAYER = 0.25
 TILE_SCALING = 0.25
 MOVE_SPEED = 2
 JUMP_SPEED = 15
+JUMP_SPEED_2 = 6
 GRAVITY = 0.4
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 600
 
-VIEWPORT_MARGIN = 400
+VIEWPORT_MARGIN = 600
 CAMERA_SPEED = 0.5
 CAMERA_OFFSET_Y = 0
 
@@ -120,18 +121,18 @@ class Level3(arcade.View):
         self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING, hit_box_algorithm="Detailed")
 
         # sprite_list is from Tiled map layers
-        self.door = Door(2620, 150)
+        self.door = Door(2380, 115)
         self.background = self.tile_map.sprite_lists["background"]
         self.platform_list = self.tile_map.sprite_lists["platforms"]
         self.spike_list = self.tile_map.sprite_lists["spikes"]
         self.ceiling_list = self.tile_map.sprite_lists["ceiling"]
 
         # Set up triggers and traps
-        self.wall1_list = MovingWall(self.tile_map.sprite_lists["wall1"], -20, 128, 'horizontal')
+        self.wall1_list = MovingWall(self.tile_map.sprite_lists["wall1"], -20, 160, 'horizontal')
         self.trig2_list = self.tile_map.sprite_lists["trig2"]
-        self.platform2_list = MovingWall(self.tile_map.sprite_lists["platform2"], -5, 96, 'horizontal')
-        self.platform3_list = MovingWall(self.tile_map.sprite_lists["platform3"], -2, 512, 'horizontal')
-        self.platform4_list = MovingWall(self.tile_map.sprite_lists["platform4"], 2, 512, 'horizontal')
+        self.platform2_list = MovingWall(self.tile_map.sprite_lists["platform2"], -5, 96, 'horizontal', True, self.player_sprite)
+        self.platform3_list = MovingWall(self.tile_map.sprite_lists["platform3"], -2, 1024, 'horizontal', True, self.player_sprite)
+        self.platform4_list = MovingWall(self.tile_map.sprite_lists["platform4"], 2, 1024, 'horizontal', True, self.player_sprite)
 
         self.button1 = Button(200, 110, False)
 
@@ -253,12 +254,12 @@ class Level3(arcade.View):
             self.frames_since_land = 0
             self.player_sprite.change_x *= 0.5
             if self.jump_pressed:
-                self.player_sprite.change_y = JUMP_SPEED
+                self.player_sprite.change_y = JUMP_SPEED if self.stage == 1 else JUMP_SPEED_2
         else:
             # coyote time.
             self.frames_since_land += 1
             if self.jump_pressed and self.frames_since_land <= 3 and self.player_sprite.change_y < 2:
-                self.player_sprite.change_y = JUMP_SPEED
+                self.player_sprite.change_y = JUMP_SPEED if self.stage == 1 else JUMP_SPEED_2
 
         
         if self.left_pressed and not self.right_pressed:
@@ -308,10 +309,11 @@ class Level3(arcade.View):
         if not self.button1.triggered and trigger_hit:
             self.button1.touched()
             self.button1on = True
+            self.frame_cnt = 0
         elif self.button1.triggered and not trigger_hit:
             self.button1.reset()
 
-        if self.button1on:
+        if not self.wall1_list.triggered and self.button1on and self.frame_cnt == 10:
             self.wall1_list.start_moving()
         
         if not self.platform2_list.triggered:
@@ -319,11 +321,16 @@ class Level3(arcade.View):
             if trigger_hit:
                 self.platform2_list.start_moving()
         
-        if not self.platform3_list.triggered and self.player_sprite.center_x > 1100:
+        if not self.platform3_list.triggered and self.player_sprite.center_x > 1060:
             self.platform3_list.start_moving()
             self.platform4_list.start_moving()
         
-
+        collided_w_door = self.door.check_collision(self.player_sprite.left, self.player_sprite.right, self.player_sprite.bottom)
+        if collided_w_door:
+            print(collided_w_door)
+            self.game_on = False
+            self.game_over()
+        
         # change stages
         if self.stage != 1 and self.player_sprite.center_x < 890:
             self.stage = 1

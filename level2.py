@@ -146,7 +146,7 @@ class Level2(arcade.View):
         self.gap2_list = MovingWall(self.tile_map.sprite_lists["gap2"], 8, 400, 'vertical')
 
         self.trig3_list = self.tile_map.sprite_lists["trig3"]
-        self.gap3_list = MovingWall(self.tile_map.sprite_lists["gap3"], 6, 96, 'horizontal')
+        self.gap3_list = MovingWall(self.tile_map.sprite_lists["gap3"], 6, 96, 'horizontal', True, self.player_sprite)
 
         self.button1 = Button(982, 450)
 

@@ -4,8 +4,12 @@ import arcade
 class MovingWall():
     """ moving wall class """
 
-    def __init__(self, wall_sprites, move_speed, move_distance, move_direction='vertical'):
-        """ initializer """
+    def __init__(self, wall_sprites, move_speed, move_distance, move_direction='vertical', move_with_player=False, player_sprite=None):
+        """
+        initializer
+        move direction default is left and down.
+        move_direction = 'vertical' or 'horizontal'
+        """
         self.wall_list = wall_sprites
         self.original_positions = [(wall.center_x, wall.center_y) for wall in wall_sprites]
         self.org_move_speed = move_speed
@@ -15,9 +19,38 @@ class MovingWall():
         self.moved_distance = 0
         self.triggered = False
         self.is_moving = False
+        self.move_with_player = move_with_player
+        self.player_sprite = player_sprite
+
+    def _check_player_collision(self):
+        """Check if player sprite is colliding with any wall sprite using bounding boxes."""
+        if self.player_sprite is None:
+            return False
+        
+        player_left = self.player_sprite.left
+        player_right = self.player_sprite.right
+        player_bottom = self.player_sprite.bottom
+        player_top = self.player_sprite.top
+        
+        for wall_sprite in self.wall_list:
+            wall_left = wall_sprite.left
+            wall_right = wall_sprite.right
+            wall_bottom = wall_sprite.bottom
+            wall_top = wall_sprite.top
+            
+            # Check if bounding boxes overlap
+            if (player_right > wall_left and player_left < wall_right and
+                player_top > wall_bottom and player_bottom < wall_top + 2):
+                return True
+        
+        return False
 
     def update(self):
-        """Move wall sprites at a constant speed until moved target distance."""
+        """Move wall sprites at a constant speed until moved target distance.
+        
+        If player_sprite is provided and colliding with the wall, the player
+        will move with the wall.
+        """
         if not self.is_moving or not self.wall_list:
             return
 
@@ -30,11 +63,23 @@ class MovingWall():
         # move by the smaller of the speed or remaining distance to avoid overshoot
         delta = min(self.move_speed, remaining)
 
+        # Check for player collision before moving the wall using manual bounding box check
+        player_colliding = self._check_player_collision() if self.move_with_player and self.is_moving else False
+
         for sprite in self.wall_list:
             if self.move_direction == 'vertical':
                 sprite.center_y -= delta
             else:
                 sprite.center_x -= delta
+
+        # Move the player with the wall if colliding
+        if player_colliding and self.player_sprite is not None:
+            if self.move_direction == 'vertical':
+                # Move player vertically with the wall
+                self.player_sprite.center_y -= delta
+            else:
+                # Move player horizontally with the wall
+                self.player_sprite.center_x -= delta
 
         self.moved_distance += abs(delta)
 
