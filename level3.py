@@ -10,9 +10,9 @@ from modals import MovingWall, Door, Button
 # constants
 SPRITE_SCALING_PLAYER = 0.25
 TILE_SCALING = 0.25
-MOVE_SPEED = 3
-JUMP_SPEED = 20
-GRAVITY = 0.6
+MOVE_SPEED = 2
+JUMP_SPEED = 15
+GRAVITY = 0.4
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 600
@@ -25,7 +25,7 @@ CAMERA_OFFSET_Y = 0
 # stage 3: 1850
 START_POS = (250, 120)
 
-CAMERA_POS = [Vec2(0, 0), Vec2(0, 0), Vec2(900, 0), Vec2(1700, 0)]
+CAMERA_POS = [Vec2(0, 0), Vec2(0, 0), Vec2(850, 0), Vec2(1700, 0)]
 
 SPRITE_PATH = "data/sprites/sprite.png"
 
@@ -49,6 +49,7 @@ class Level3(arcade.View):
         self.moving_wall_list = None
 
         # specific to the levels
+        self.ceiling_list = None
         self.wall1_list = None
         self.button1 = None
         self.button1on = False
@@ -121,6 +122,7 @@ class Level3(arcade.View):
         self.background = self.tile_map.sprite_lists["background"]
         self.platform_list = self.tile_map.sprite_lists["platforms"]
         self.spike_list = self.tile_map.sprite_lists["spikes"]
+        self.ceiling_list = self.tile_map.sprite_lists["ceiling"]
 
         # Set up triggers and traps
         self.wall1_list = MovingWall(self.tile_map.sprite_lists["wall1"], -20, 128, 'horizontal')
@@ -153,6 +155,7 @@ class Level3(arcade.View):
         self.spike_list.draw()
         self.player_list.draw()
         self.wall1_list.wall_list.draw()
+        self.ceiling_list.draw()
         # self.player_list.draw_hit_boxes()
         # draw the sprite lists
         for sprite_list in self.vis_sprites_list:
@@ -254,13 +257,7 @@ class Level3(arcade.View):
                 self.player_sprite.change_y = JUMP_SPEED
 
         
-        # first moving wall overwrites the movement
-        trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.wall1_list.wall_list)
-        if trigger_hit:
-            self.player_sprite.change_x = -self.wall1_list.move_speed
-            if self.jump_pressed:
-                self.player_sprite.change_y = JUMP_SPEED
-        elif self.left_pressed and not self.right_pressed:
+        if self.left_pressed and not self.right_pressed:
             if abs(self.player_sprite.change_x) < MOVE_SPEED:
                 self.player_sprite.change_x -= 1.5
             else: 
@@ -270,7 +267,18 @@ class Level3(arcade.View):
                 self.player_sprite.change_x += 1.5
             else: 
                 self.player_sprite.change_x = MOVE_SPEED
+                
+        # first moving wall overwrites the movement
+        trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.wall1_list.wall_list)
+        if trigger_hit:
+            self.player_sprite.change_x = -self.wall1_list.move_speed
+            if self.jump_pressed:
+                self.player_sprite.change_y = JUMP_SPEED
 
+        trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.ceiling_list)
+        if trigger_hit:
+            self.player_sprite.change_x = 1
+            self.player_sprite.change_y = -2
         # handle animation
         if self.player_sprite.change_x > 0.02:
             # moving right

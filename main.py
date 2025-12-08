@@ -4,6 +4,7 @@ import time
 
 from level1 import Level1
 from level2 import Level2
+from level3 import Level3
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 600
@@ -28,6 +29,10 @@ class MenuView(arcade.View):
         self.v_box.add(level2_button.with_space_around(bottom=20))
         level2_button.on_click = self.start_level2
 
+        level3_button = arcade.gui.UIFlatButton(text="Level 3", width=200)
+        self.v_box.add(level3_button.with_space_around(bottom=20))
+        level3_button.on_click = self.start_level3
+
         self.manager.add(
             arcade.gui.UIAnchorWidget(
                 anchor_x="center_x",
@@ -36,10 +41,16 @@ class MenuView(arcade.View):
         )
 
     def start_level1(self, event):
-        self.window.show_view(self.window.level1_view)
+        level1_view = Level1(self.window)
+        self.window.show_view(level1_view)
     
     def start_level2(self, event):
-        self.window.show_view(self.window.level2_view)
+        level2_view = Level2(self.window)
+        self.window.show_view(level2_view)
+
+    def start_level3(self, event):
+        level3_view = Level3(self.window)
+        self.window.show_view(level3_view)
 
     def on_show_view(self):
         arcade.set_background_color((255, 255, 255))
@@ -47,7 +58,7 @@ class MenuView(arcade.View):
     def on_draw(self):
         arcade.start_render()
         self.manager.draw()
-        arcade.draw_text("Evil Level", 500, 400, (0, 0, 0), 32, anchor_x="center")
+        arcade.draw_text("Evil Level", 500, 500, (0, 0, 0), 32, anchor_x="center")
         if self.is_loading:
             arcade.draw_text("loading level...", 500, 100, (0, 0, 0), 32, anchor_x="center")
         
@@ -60,8 +71,6 @@ class GameWindow(arcade.Window):
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Evil Level", vsync=True)
         self.set_location(50, 50)
         self.menu_view = MenuView(self)
-        self.level1_view = Level1(self)
-        self.level2_view = Level2(self)
         arcade.enable_timings()
 
     def setup(self):
