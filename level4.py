@@ -16,14 +16,14 @@ SPRITE_SCALING_PLAYER = 0.25
 TILE_SCALING = 0.25
 MOVE_SPEED = 2
 JUMP_SPEED = 3
-JETPACK_SPEED = 0.35
+JETPACK_SPEED = 0.4
 GRAVITY = 0.2
 
 VIEWPORT_MARGIN = 400
 CAMERA_SPEED = 0.5
 CAMERA_OFFSET_Y = 0
 
-START_POS = (250, 250)
+START_POS = (240, 250)
 
 SPRITE_PATH = "data/sprites/sprite.png"
 
@@ -52,6 +52,9 @@ class Level4(arcade.View):
         self.fireball1 = None
         self.fireball2 = None
         self.fireball3 = None
+        self.fireball4 = None
+        self.fireball5 = None
+        self.fireball6 = None
         self.fireball_list = None
         
         # player info
@@ -89,6 +92,13 @@ class Level4(arcade.View):
         self.shadertoy = Shadertoy(size=(SCREEN_WIDTH, SCREEN_HEIGHT),
                                    main_source=open(file_name).read())
         
+        # jetpack particle shader
+        self.jetpack_particle_run = False
+        self.jetpack_time_offset = 0.0
+        jetpack_file_name = "jetpack_particles.glsl"
+        self.jetpack_shadertoy = Shadertoy(size=(SCREEN_WIDTH, SCREEN_HEIGHT),
+                                           main_source=open(jetpack_file_name).read())
+        
         # arcade.enable_timings()
 
 
@@ -124,7 +134,10 @@ class Level4(arcade.View):
         self.fireball1 = FireBall(270, 480, 160)
         self.fireball2 = FireBall(462, 480, 224)
         self.fireball3 = FireBall(734, 480, 320)
-        self.fireball_list = [self.fireball1, self.fireball2, self.fireball3]
+        self.fireball4 = FireBall(976, 480, 128)
+        self.fireball5 = FireBall(1168, 480, 192)
+        self.fireball6 = FireBall(1392, 480, 256)
+        self.fireball_list = [self.fireball1, self.fireball2, self.fireball3, self.fireball4, self.fireball5, self.fireball6]
 
         self.vis_sprites_list = [self.platform_list]
 
@@ -164,6 +177,10 @@ class Level4(arcade.View):
             # stop particle rendering after the configured burst time
             if self.time > self.time_particle_start + self.PARTICLE_BURST_TIME:
                 self.particle_run = False
+        
+        # Run jetpack particle shader when jetpack is active
+        if self.jetpack_particle_run:
+            self.jetpack_shadertoy.render(time=self.time)
 
         # draw the gui
         self.camera_gui.use()
@@ -216,6 +233,8 @@ class Level4(arcade.View):
 
         # If we're currently running the reset particle burst, wait until it finishes
         if self.is_resetting:
+            # Disable jetpack particles during reset
+            self.jetpack_particle_run = False
             # If the burst duration is over, finalize the reset
             if self.time - self.reset_start_time >= self.PARTICLE_BURST_TIME:
                 self.finish_reset()
@@ -228,6 +247,7 @@ class Level4(arcade.View):
             self.left_pressed = False
             self.right_pressed = False
             self.jump_pressed = False
+            self.jetpack_particle_run = False
             if self.door.move_over:
                 self.level_complete()
         
@@ -250,12 +270,29 @@ class Level4(arcade.View):
                 self.jetpack_fuel += 1
             if self.jump_pressed:
                 self.player_sprite.change_y = JUMP_SPEED
+            # Disable jetpack particles when on ground
+            self.jetpack_particle_run = False
         else:
             if self.jump_pressed and self.jetpack_fuel > 0:
                 if self.player_sprite.change_y < 0:
                     self.player_sprite.change_y = 0
                 self.player_sprite.change_y += JETPACK_SPEED
                 self.jetpack_fuel -= 1
+                # Enable jetpack particles
+                if not self.jetpack_particle_run:
+                    self.jetpack_particle_run = True
+                    self.jetpack_time_offset = self.time
+                # Update particle position (below player sprite) continuously
+                screen_x = self.player_sprite.center_x - self.view_left
+                screen_y = self.player_sprite.center_y - CAMERA_OFFSET_Y - 20  # Offset below player
+                try:
+                    self.jetpack_shadertoy.program['pos'] = (screen_x, screen_y)
+                    self.jetpack_shadertoy.program['timeOffset'] = self.jetpack_time_offset
+                except Exception:
+                    pass
+            else:
+                # Disable jetpack particles when not active
+                self.jetpack_particle_run = False
         if self.player_sprite.change_y > 3:
             self.player_sprite.change_y = 3
 
@@ -317,6 +354,8 @@ class Level4(arcade.View):
 
         self.shake_camera()
         self.particle_run = True
+        # disable jetpack particles during reset
+        self.jetpack_particle_run = False
         # record when the particle burst started
         self.time_particle_start = self.time
         self.reset_start_time = self.time
