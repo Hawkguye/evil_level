@@ -2,6 +2,8 @@
 uniform vec2 pos;
 // Time offset for continuous particle generation
 uniform float timeOffset;
+// Direction: -1.0 for left, 1.0 for right, 0.0 for no horizontal movement
+uniform float direction;
 
 // Constants
 // Number of particles
@@ -13,7 +15,7 @@ const float PARTICLE_SIZE = 0.004;
 // Time for each particle to fall (in seconds)
 const float PARTICLE_LIFETIME = 0.3;
 // Spread angle for particles (radians)
-const float SPREAD_ANGLE = 0.4;
+const float SPREAD_ANGLE = 0.05;
 const float TWOPI = 6.2832;
 
 // Random function for particle direction
@@ -44,7 +46,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
     // Generate random direction with downward bias
     vec2 randomDir = Hash12_Polar(seed);
     // Create downward direction with some spread
-    float angle = randomDir.x * SPREAD_ANGLE - SPREAD_ANGLE * 0.5;
+    // Adjust angle based on player movement direction
+    float baseAngle = randomDir.x * SPREAD_ANGLE - SPREAD_ANGLE * 0.5;
+    // Add horizontal bias based on movement direction
+    float horizontalBias = direction * 0.5; // Adjust strength of horizontal bias
+    float angle = baseAngle + horizontalBias;
     vec2 dir = vec2(sin(angle), -abs(cos(angle))); // Downward bias
     
     // Calculate particle spawn time offset

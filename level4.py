@@ -127,7 +127,8 @@ class Level4(arcade.View):
         self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING, hit_box_algorithm="Detailed")
 
         # sprite_list is from Tiled map layers
-        self.door = Door(2100, 180)
+        self.door = Door(1400, 250)
+        self.door.can_be_touched = False
         self.background = self.tile_map.sprite_lists["background"]
         self.platform_list = self.tile_map.sprite_lists["platforms"]
 
@@ -170,6 +171,8 @@ class Level4(arcade.View):
             sprite_list.draw()
         for fireball in self.fireball_list:
             fireball.draw()
+        if not self.is_resetting:
+            self.draw_fuel_bar()
 
         # Run the GLSL code
         if self.particle_run:
@@ -188,7 +191,6 @@ class Level4(arcade.View):
         arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 550, font_size=16)
         arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
-        self.draw_fuel_bar()
         
     
     def on_key_press(self, key, modifiers):
@@ -261,7 +263,7 @@ class Level4(arcade.View):
                 fireball.update(GRAVITY)
         
         # Calculate speed based on the keys pressed, if in air, does not stop immedietly
-        self.player_sprite.change_x *= 0.92
+        self.player_sprite.change_x *= 0.96
         # self.player_sprite.change_x = 0
 
         if self.physics_engine.can_jump():
@@ -284,10 +286,11 @@ class Level4(arcade.View):
                     self.jetpack_time_offset = self.time
                 # Update particle position (below player sprite) continuously
                 screen_x = self.player_sprite.center_x - self.view_left
-                screen_y = self.player_sprite.center_y - CAMERA_OFFSET_Y - 20  # Offset below player
+                screen_y = self.player_sprite.center_y - CAMERA_OFFSET_Y - 10  # Offset below player
                 try:
                     self.jetpack_shadertoy.program['pos'] = (screen_x, screen_y)
                     self.jetpack_shadertoy.program['timeOffset'] = self.jetpack_time_offset
+                    self.jetpack_shadertoy.program['direction'] = self.player_sprite.change_x * -0.3
                 except Exception:
                     pass
             else:
@@ -477,8 +480,12 @@ class Level4(arcade.View):
 
 
     def draw_fuel_bar(self):
-        arcade.draw_xywh_rectangle_filled(910, 200, 20, self.jetpack_fuel * 2, (255, 98, 0))
-        arcade.draw_rectangle_outline(920, 300, 20, 200, (0, 0, 0), 5)
+        # arcade.draw_xywh_rectangle_filled(910, 200, 20, self.jetpack_fuel * 2, (255, 98, 0))
+        # arcade.draw_rectangle_outline(920, 300, 20, 200, (0, 0, 0), 5)
+        x = self.player_sprite.center_x - 18
+        y = self.player_sprite.center_y
+        arcade.draw_xywh_rectangle_filled(x-3, y-25, 6, self.jetpack_fuel / 2, (255, 98, 0))
+        arcade.draw_rectangle_outline(x, y, 6, 50, (0, 0, 0))
         
 
 def main():

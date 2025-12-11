@@ -244,8 +244,8 @@ class FireBall():
         self.v_x = 0
         self.v_y = 0
         self.boundary = boundary
-        self.sprite = arcade.Sprite("data/sprites/fireball.png", scale=0.4, center_x=pos_x, center_y=pos_y)
-        self.sprite.set_hit_box([(-28, -28), (0, -42), (28, -28), (42, 0), (28, 28), (0, 42), (-28, 28), (-42, 0)])
+        self.sprite = arcade.Sprite("data/sprites/fireball.png", scale=1, center_x=pos_x, center_y=pos_y)
+        # self.sprite.set_hit_box([(-28, -28), (0, -42), (28, -28), (42, 0), (28, 28), (0, 42), (-28, 28), (-42, 0)])
     
     def draw(self):
         self.sprite.draw()
@@ -255,7 +255,7 @@ class FireBall():
         if self.pos_y + self.v_y <= self.boundary:
             self.v_y *= -1
         else:
-            self.v_y -= gravity
+            self.v_y -= (gravity * 0.6)
         self.pos_x += self.v_x
         self.pos_y += self.v_y
         self.sprite.center_x = self.pos_x
