@@ -233,3 +233,39 @@ class Button():
         self.sprite1.visible = True
         self.sprite2.visible = False
     
+
+class FireBall():
+    def __init__(self, pos_x, pos_y, boundary):
+        """ initializer """
+        self.init_x = pos_x
+        self.init_y = pos_y
+        self.pos_x = pos_x
+        self.pos_y = pos_y
+        self.v_x = 0
+        self.v_y = 0
+        self.boundary = boundary
+        self.sprite = arcade.Sprite("data/sprites/fireball.png", scale=0.4, center_x=pos_x, center_y=pos_y)
+        self.sprite.set_hit_box([(-32, -32), (0, -48), (32, -32), (48, 0), (32, 32), (0, 48), (-32, 32), (-48, 0)])
+    
+    def draw(self):
+        self.sprite.draw()
+        self.sprite.draw_hit_box()
+
+    def update(self, gravity):
+        self.v_y -= gravity
+        if self.pos_y + self.v_y <= self.boundary:
+            self.v_y *= -1
+        self.pos_x += self.v_x
+        self.pos_y += self.v_y
+        self.sprite.center_x = self.pos_x
+        self.sprite.center_y = self.pos_y
+    
+    def bounce(self):
+        self.v_x *= -1
+        self.v_y *= -1
+    
+    def reset(self):
+        self.pos_x = self.init_x
+        self.pos_y = self.init_y
+        self.v_x = 0
+        self.v_y = 0
