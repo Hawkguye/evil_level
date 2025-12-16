@@ -132,12 +132,12 @@ class Level4(arcade.View):
         self.background = self.tile_map.sprite_lists["background"]
         self.platform_list = self.tile_map.sprite_lists["platforms"]
 
-        self.fireball1 = FireBall(270, 480, 160)
-        self.fireball2 = FireBall(462, 480, 224)
+        self.fireball1 = FireBall(290, 480, 160)
+        self.fireball2 = FireBall(460, 480, 224)
         self.fireball3 = FireBall(734, 480, 320)
-        self.fireball4 = FireBall(976, 480, 128)
+        self.fireball4 = FireBall(990, 480, 128)
         self.fireball5 = FireBall(1168, 480, 192)
-        self.fireball6 = FireBall(1392, 480, 256)
+        self.fireball6 = FireBall(1400, 480, 256)
         self.fireball_list = [self.fireball1, self.fireball2, self.fireball3, self.fireball4, self.fireball5, self.fireball6]
 
         self.vis_sprites_list = [self.platform_list]
@@ -263,13 +263,13 @@ class Level4(arcade.View):
                 fireball.update(GRAVITY)
         
         # Calculate speed based on the keys pressed, if in air, does not stop immedietly
-        self.player_sprite.change_x *= 0.96
+        self.player_sprite.change_x *= 0.97
         # self.player_sprite.change_x = 0
 
         if self.physics_engine.can_jump():
             self.player_sprite.change_x = 0
             if self.jetpack_fuel < 100:
-                self.jetpack_fuel += 1
+                self.jetpack_fuel += 1.5
             if self.jump_pressed:
                 self.player_sprite.change_y = JUMP_SPEED
             # Disable jetpack particles when on ground
@@ -482,8 +482,8 @@ class Level4(arcade.View):
     def draw_fuel_bar(self):
         # arcade.draw_xywh_rectangle_filled(910, 200, 20, self.jetpack_fuel * 2, (255, 98, 0))
         # arcade.draw_rectangle_outline(920, 300, 20, 200, (0, 0, 0), 5)
-        x = self.player_sprite.center_x - 18
-        y = self.player_sprite.center_y
+        x = int(self.player_sprite.center_x - 18)
+        y = int(self.player_sprite.center_y)
         arcade.draw_xywh_rectangle_filled(x-3, y-25, 6, self.jetpack_fuel / 2, (255, 98, 0))
         arcade.draw_rectangle_outline(x, y, 6, 50, (0, 0, 0))
         
