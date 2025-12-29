@@ -4,7 +4,7 @@ import arcade
 class MovingWall():
     """ moving wall class """
 
-    def __init__(self, wall_sprites, move_speed, move_distance, move_direction='vertical', move_with_player=False, player_sprite=None):
+    def __init__(self, wall_sprites: arcade.SpriteList, move_speed: int, move_distance: int, move_direction='vertical', move_with_player=False, player_sprite=None, disappears=False, visible=True):
         """
         initializer
         move direction default is left and down.
@@ -21,6 +21,10 @@ class MovingWall():
         self.is_moving = False
         self.move_with_player = move_with_player
         self.player_sprite = player_sprite
+        self.disappears = disappears
+        self.visible = visible
+        self.wall_list.visible = self.visible
+        self.player_on_platform = False
 
     def _check_player_collision(self):
         """Check if player sprite is colliding with any wall sprite using bounding boxes."""
@@ -57,7 +61,7 @@ class MovingWall():
         # remaining distance to move
         remaining = self.move_distance - self.moved_distance
         if remaining <= 0:
-            self.is_moving = False
+            self.finish_moving()
             return
 
         # move by the smaller of the speed or remaining distance to avoid overshoot
@@ -73,27 +77,43 @@ class MovingWall():
                 sprite.center_x -= delta
 
         # Move the player with the wall if colliding
+        self.player_on_platform = False
         if player_colliding and self.player_sprite is not None:
-            if self.move_direction == 'vertical':
-                # Move player vertically with the wall
-                self.player_sprite.center_y -= delta
-            else:
-                # Move player horizontally with the wall
-                self.player_sprite.center_x -= delta
+            self.player_on_platform = True
+            # if self.move_direction == 'vertical':
+            #     # Move player vertically with the wall
+            #     self.player_sprite.center_y -= delta
+            # else:
+            #     # Move player horizontally with the wall
+            #     self.player_sprite.center_x -= delta
 
         self.moved_distance += abs(delta)
 
         # stop when we've moved the target distance
         if self.moved_distance >= self.move_distance:
-            self.is_moving = False
+            self.finish_moving()
+            
 
     def start_moving(self):
         """Start wall movement."""
         self.is_moving = True
         self.triggered = True
+        self.wall_list.visible = True
+    
+    def finish_moving(self):
+        self.is_moving = False
+        self.player_on_platform = False
+        if self.disappears:
+            self.wall_list.visible = False
+            for sprite in self.wall_list:
+                # move it far far away so it "disappears"
+                sprite.center_x = 100000
+                sprite.center_y = 100000
 
     def reset(self):
         """Reset wall positions to original locations."""
+        self.wall_list.visible = self.visible
+        self.player_on_platform = False
         self.triggered = False
         self.moved_distance = 0
         self.is_moving = False

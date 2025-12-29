@@ -10,16 +10,16 @@ from modals import MovingWall, Door, Button
 # constants
 SPRITE_SCALING_PLAYER = 0.25
 TILE_SCALING = 0.25
-MOVE_SPEED = 2
+MOVE_SPEED = 3
 JUMP_SPEED = 15
-JUMP_SPEED_2 = 6
-GRAVITY = 0.4
+JUMP_SPEED_2 = 5
+GRAVITY = 0.3
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 600
 
 VIEWPORT_MARGIN = 600
-CAMERA_SPEED = 0.5
+CAMERA_SPEED = 0.2
 CAMERA_OFFSET_Y = 0
 
 # start x: 250
@@ -58,6 +58,7 @@ class Level3(arcade.View):
         self.platform2_list = None
         self.platform3_list = None
         self.platform4_list = None
+        self.platform5_list = None
         
         # player info
         self.death = 0
@@ -72,6 +73,8 @@ class Level3(arcade.View):
         self.physics_engine = None
         self.tile_map = None
         self.frames_since_land = 0
+        self.player_on_platform = False
+        self.platform_speed = 0
         
         # CAMERAS
         self.camera_sprites = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -131,13 +134,14 @@ class Level3(arcade.View):
         self.wall1_list = MovingWall(self.tile_map.sprite_lists["wall1"], -20, 160, 'horizontal')
         self.trig2_list = self.tile_map.sprite_lists["trig2"]
         self.platform2_list = MovingWall(self.tile_map.sprite_lists["platform2"], -5, 96, 'horizontal', True, self.player_sprite)
-        self.platform3_list = MovingWall(self.tile_map.sprite_lists["platform3"], -2, 1024, 'horizontal', True, self.player_sprite)
-        self.platform4_list = MovingWall(self.tile_map.sprite_lists["platform4"], 2, 1024, 'horizontal', True, self.player_sprite)
+        self.platform3_list = MovingWall(self.tile_map.sprite_lists["platform3"], -2.5, 640, 'horizontal', True, self.player_sprite, True)
+        self.platform4_list = MovingWall(self.tile_map.sprite_lists["platform4"], 2.5, 1024, 'horizontal', True, self.player_sprite, True)
+        self.platform5_list = MovingWall(self.tile_map.sprite_lists["platform5"], -1.5, 1024, 'horizontal', True, self.player_sprite, False, False)
 
         self.button1 = Button(200, 110, False)
 
-        self.moving_wall_list = [self.wall1_list, self.platform2_list, self.platform3_list, self.platform4_list]
-        self.vis_sprites_list = [self.platform_list, self.platform2_list.wall_list, self.platform3_list.wall_list, self.platform4_list.wall_list]
+        self.moving_wall_list = [self.wall1_list, self.platform2_list, self.platform3_list, self.platform4_list, self.platform5_list]
+        self.vis_sprites_list = [self.platform_list, self.platform2_list.wall_list, self.platform3_list.wall_list, self.platform4_list.wall_list, self.platform5_list.wall_list]
 
         # setup physics engine
         self.physics_engine = arcade.PhysicsEnginePlatformer(
@@ -219,6 +223,7 @@ class Level3(arcade.View):
         """ Movement and game logic """
         self.time += delta_time
         self.frame_cnt += 1
+        self.player_on_platform = False
 
         # If we're currently running the reset particle burst, wait until it finishes
         if self.is_resetting:
@@ -243,12 +248,16 @@ class Level3(arcade.View):
         self.player_list.update_animation()
         for wall_list in self.moving_wall_list:
             wall_list.update()
+            if wall_list.player_on_platform:
+                self.player_on_platform = True
+                self.platform_speed = -wall_list.move_speed/2
+                
         if self.game_on:
             self.physics_engine.update()
         
 
         # Calculate speed based on the keys pressed, if in air, does not stop immedietly
-        self.player_sprite.change_x *= 0.95
+        self.player_sprite.change_x *= 0.95 if self.stage == 1 else 0.99
         # self.player_sprite.change_x = 0
         if self.physics_engine.can_jump():
             self.frames_since_land = 0
@@ -261,17 +270,17 @@ class Level3(arcade.View):
             if self.jump_pressed and self.frames_since_land <= 3 and self.player_sprite.change_y < 2:
                 self.player_sprite.change_y = JUMP_SPEED if self.stage == 1 else JUMP_SPEED_2
 
-        
+        MOVE_SPEED = 3 if self.stage == 1 else 2
         if self.left_pressed and not self.right_pressed:
-            if abs(self.player_sprite.change_x) < MOVE_SPEED:
-                self.player_sprite.change_x -= 1.5
-            else: 
-                self.player_sprite.change_x = -MOVE_SPEED
+            self.player_sprite.change_x = -MOVE_SPEED if self.player_on_platform == False else self.platform_speed - MOVE_SPEED
+            self.set_anim(256)
         elif self.right_pressed and not self.left_pressed:
-            if abs(self.player_sprite.change_x) < MOVE_SPEED:
-                self.player_sprite.change_x += 1.5
-            else: 
-                self.player_sprite.change_x = MOVE_SPEED
+            self.player_sprite.change_x = MOVE_SPEED if self.player_on_platform == False else self.platform_speed + MOVE_SPEED
+            self.set_anim(384)
+        else:
+            if self.player_on_platform:
+                self.player_sprite.change_x = self.platform_speed
+            self.clear_anim(0, 0)
                 
         # first moving wall overwrites the movement
         trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.wall1_list.wall_list)
@@ -283,16 +292,7 @@ class Level3(arcade.View):
         trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.ceiling_list)
         if trigger_hit:
             self.player_sprite.change_x = 1
-            self.player_sprite.change_y = -2
-        # handle animation
-        if self.player_sprite.change_x > 0.02:
-            # moving right
-            self.set_anim(384)
-        elif self.player_sprite.change_x < -0.02:
-            # moving left
-            self.set_anim(256)
-        else:
-            self.clear_anim(0, 0)
+            self.player_sprite.change_y = -4
 
         if not self.game_on:
             return
@@ -324,6 +324,10 @@ class Level3(arcade.View):
         if not self.platform3_list.triggered and self.player_sprite.center_x > 1060:
             self.platform3_list.start_moving()
             self.platform4_list.start_moving()
+            self.frame_cnt = 0
+        
+        if self.platform4_list.triggered and self.frame_cnt == 5 * 60:
+            self.platform5_list.start_moving()
         
         collided_w_door = self.door.check_collision(self.player_sprite.left, self.player_sprite.right, self.player_sprite.bottom)
         if collided_w_door:
@@ -431,7 +435,7 @@ class Level3(arcade.View):
     def update_camera_pos(self):
         """ update camera position, transition the 3 stages """
         self.view_left = CAMERA_POS[self.stage].x
-        speed = 0.2 if self.stage == 3 else 0.05
+        speed = 0.1
         self.camera_sprites.move_to(CAMERA_POS[self.stage], speed)
 
 
