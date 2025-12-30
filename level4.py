@@ -205,7 +205,7 @@ class Level4(arcade.View):
         self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING, hit_box_algorithm="Detailed")
 
         # sprite_list is from Tiled map layers
-        self.door = Door(1075, 500)
+        self.door = Door(1470, 276)
         self.door.can_be_touched = False
         self.door.opacity = 0  # Hide door until all buttons are pressed
         self.background = self.tile_map.sprite_lists["background"]
@@ -213,16 +213,16 @@ class Level4(arcade.View):
         
         self.button1 = Button(130, 336, False, True)
         self.button2 = Button(656, 250)
-        self.button3 = Button(900, 300)
+        self.button3 = Button(1225, 532, False, True)
         self.button_list = [self.button1, self.button2, self.button3]
         self.buttons_pressed_count = 0
 
-        self.fireball1 = FireBall(290, 480, 160)
-        self.fireball2 = FireBall(460, 480, 224)
-        self.fireball3 = FireBall(734, 480, 320)
-        self.fireball4 = FireBall(990, 480, 128)
-        self.fireball5 = FireBall(1168, 480, 192)
-        self.fireball6 = FireBall(1400, 480, 256)
+        self.fireball1 = FireBall(290, 480, 173)
+        self.fireball2 = FireBall(460, 480, 235)
+        self.fireball3 = FireBall(734, 480, 333)
+        self.fireball4 = FireBall(990, 480, 140)
+        self.fireball5 = FireBall(1168, 480, 210)
+        self.fireball6 = FireBall(1400, 480, 265)
         self.fireball_list = [self.fireball1, self.fireball2, self.fireball3, self.fireball4, self.fireball5, self.fireball6]
 
         self.cannon = Cannon(170, 445, self.player_sprite)
@@ -264,7 +264,7 @@ class Level4(arcade.View):
             sprite_list.draw()
         for fireball in self.fireball_list:
             fireball.draw()
-        if not self.is_resetting:
+        if not self.is_resetting and self.game_on:
             self.draw_fuel_bar()
 
         # Run the GLSL code
@@ -316,9 +316,7 @@ class Level4(arcade.View):
     def on_mouse_press(self, x, y, button, modifiers):
         """ called whenver mouse is clicked """
         if button == arcade.MOUSE_BUTTON_LEFT:
-            print("left mouse button pressed at ", x, y)
-        if button == arcade.MOUSE_BUTTON_RIGHT:
-            print("right mouse button pressed at ", x, y)
+            print("left mouse button pressed at ", round(x + self.view_left), round(y + CAMERA_OFFSET_Y))
 
 
     def update(self, delta_time):
