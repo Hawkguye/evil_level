@@ -5,7 +5,7 @@ import math
 import time
 from pyglet.math import Vec2
 
-from modals import MovingWall, Door, FireBall
+from modals import MovingWall, Door, FireBall, Missile, Button
 
 
 SCREEN_WIDTH = 1000
@@ -26,6 +26,82 @@ CAMERA_OFFSET_Y = 0
 START_POS = (240, 250)
 
 SPRITE_PATH = "data/sprites/sprite.png"
+
+
+class Cannon:
+    """Cannon class that spawns missiles periodically"""
+    
+    def __init__(self, pos_x: int, pos_y: int, player_sprite):
+        """Initialize cannon at given position"""
+        self.sprite = arcade.Sprite()
+        self.sprite.scale = 0.5
+        self.sprite.center_x = pos_x
+        self.sprite.center_y = pos_y
+        self.sprite.flipped_horizontally = True
+        self.player_sprite = player_sprite
+        self.missile_list = []
+        self.last_spawn_time = 0.0
+        self.spawn_interval = 3.0  # spawn every 3 seconds
+        self.animation_duration = 0.5  # duration of firing animation in seconds
+        self.firing_start_time = None
+        
+        # Load animation textures
+        self.idle_texture = arcade.load_texture("data/sprites/cannon.png", flipped_horizontally=True)
+        self.firing_textures = [
+            arcade.load_texture("data/sprites/cannon2.png", flipped_horizontally=True),
+            arcade.load_texture("data/sprites/cannon3.png", flipped_horizontally=True),
+            arcade.load_texture("data/sprites/cannon4.png", flipped_horizontally=True),
+            arcade.load_texture("data/sprites/cannon5.png", flipped_horizontally=True),
+        ]
+        
+        # Set initial texture to idle
+        self.sprite.texture = self.idle_texture
+    
+    def draw(self):
+        """Draw the cannon and all active missiles"""
+        self.sprite.draw()
+        for missile in self.missile_list:
+            missile.draw()
+    
+    def start_firing_animation(self, current_time: float):
+        """Start the firing animation"""
+        self.firing_start_time = current_time
+        # Set to first frame of firing animation
+        self.sprite.texture = self.firing_textures[0]
+    
+    def update(self, current_time: float):
+        """Update cannon and missiles, spawn new missile if interval elapsed"""
+        # Spawn new missile if enough time has passed
+        if current_time - self.last_spawn_time >= self.spawn_interval:
+            missile = Missile(self.sprite.center_x + 30, self.sprite.center_y, self.player_sprite)
+            self.missile_list.append(missile)
+            self.last_spawn_time = current_time
+            # Start firing animation
+            self.start_firing_animation(current_time)
+        
+        # Update firing animation
+        if self.firing_start_time is not None:
+            elapsed = current_time - self.firing_start_time
+            if elapsed >= self.animation_duration:
+                # Animation complete, return to idle
+                self.sprite.texture = self.idle_texture
+                self.firing_start_time = None
+            else:
+                # Calculate which frame to show
+                frame_index = int((elapsed / self.animation_duration) * len(self.firing_textures))
+                frame_index = min(frame_index, len(self.firing_textures) - 1)  # Clamp to valid range
+                self.sprite.texture = self.firing_textures[frame_index]
+        
+        # Update all missiles
+        for missile in self.missile_list[:]:  # Use slice to safely iterate while modifying
+            missile.update()
+    
+    def reset(self, current_time: float = 0.0):
+        """Reset cannon state"""
+        self.missile_list.clear()
+        self.last_spawn_time = current_time
+        self.sprite.texture = self.idle_texture
+        self.firing_start_time = None
 
 
 class Level4(arcade.View):
@@ -56,6 +132,8 @@ class Level4(arcade.View):
         self.fireball5 = None
         self.fireball6 = None
         self.fireball_list = None
+        self.cannon = None
+        self.button_list = None
         
         # player info
         self.death = 0
@@ -127,10 +205,17 @@ class Level4(arcade.View):
         self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING, hit_box_algorithm="Detailed")
 
         # sprite_list is from Tiled map layers
-        self.door = Door(1400, 250)
+        self.door = Door(1075, 500)
         self.door.can_be_touched = False
+        self.door.opacity = 0  # Hide door until all buttons are pressed
         self.background = self.tile_map.sprite_lists["background"]
         self.platform_list = self.tile_map.sprite_lists["platforms"]
+        
+        self.button1 = Button(130, 336, False, True)
+        self.button2 = Button(656, 250)
+        self.button3 = Button(900, 300)
+        self.button_list = [self.button1, self.button2, self.button3]
+        self.buttons_pressed_count = 0
 
         self.fireball1 = FireBall(290, 480, 160)
         self.fireball2 = FireBall(460, 480, 224)
@@ -139,6 +224,8 @@ class Level4(arcade.View):
         self.fireball5 = FireBall(1168, 480, 192)
         self.fireball6 = FireBall(1400, 480, 256)
         self.fireball_list = [self.fireball1, self.fireball2, self.fireball3, self.fireball4, self.fireball5, self.fireball6]
+
+        self.cannon = Cannon(170, 445, self.player_sprite)
 
         self.vis_sprites_list = [self.platform_list]
 
@@ -163,8 +250,14 @@ class Level4(arcade.View):
         self.camera_sprites.use()
 
         self.background.draw()
-        self.door.draw()
+        # Only draw door if it's active (can_be_touched)
+        if self.door.can_be_touched:
+            self.door.draw()
         self.player_list.draw()
+        self.cannon.draw()
+        # Draw buttons
+        for button in self.button_list:
+            button.draw()
         # self.player_list.draw_hit_boxes()
         # draw the sprite lists
         for sprite_list in self.vis_sprites_list:
@@ -261,6 +354,7 @@ class Level4(arcade.View):
             self.physics_engine.update()
             for fireball in self.fireball_list:
                 fireball.update(GRAVITY)
+            self.cannon.update(self.time)
         
         # Calculate speed based on the keys pressed, if in air, does not stop immedietly
         self.player_sprite.change_x *= 0.97
@@ -269,7 +363,7 @@ class Level4(arcade.View):
         if self.physics_engine.can_jump():
             self.player_sprite.change_x = 0
             if self.jetpack_fuel < 100:
-                self.jetpack_fuel += 1.5
+                self.jetpack_fuel += 2
             if self.jump_pressed:
                 self.player_sprite.change_y = JUMP_SPEED
             # Disable jetpack particles when on ground
@@ -320,6 +414,23 @@ class Level4(arcade.View):
         if not self.game_on:
             return
         
+        # Check button collisions
+        for button in self.button_list:
+            trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, button.sprite_list)
+            if not button.triggered and trigger_hit:
+                # Button just got triggered
+                button.touched()
+                self.buttons_pressed_count += 1
+                self.shake_camera()
+            elif button.triggered and not trigger_hit:
+                # Player left the button after triggering it, hide it
+                button.sprite_list.visible = False
+        
+        # Show door when all buttons are pressed
+        if self.buttons_pressed_count >= 3 and not self.door.can_be_touched:
+            self.door.can_be_touched = True
+            self.door.opacity = 255
+        
         # check if touched the door
         collided_w_door = self.door.check_collision(self.player_sprite.left, self.player_sprite.right, self.player_sprite.bottom)
         if collided_w_door:
@@ -335,32 +446,51 @@ class Level4(arcade.View):
             collided_w_player = arcade.check_for_collision(self.player_sprite, fireball.sprite)
             if collided_w_player:
                 self.reset()
+        
+        # Check missile collisions
+        for missile in self.cannon.missile_list[:]:  # Use slice to safely iterate while modifying
+            # Check collision with player
+            collided_w_player = arcade.check_for_collision(self.player_sprite, missile.sprite)
+            if collided_w_player:
+                self.reset()
+                break  # Reset will handle clearing missiles, so break to avoid processing more
+            
+            # Check collision with platforms
+            collided_w_platform = arcade.check_for_collision_with_list(missile.sprite, self.platform_list)
+            if collided_w_platform:
+                # Trigger particle explosion at missile location
+                self.trigger_particle_explosion(missile.pos_x, missile.pos_y)
+                # Remove the missile
+                self.cannon.missile_list.remove(missile)
+        
         # Scroll the screen to the player
         self.scroll_to_player()
+
+    def trigger_particle_explosion(self, world_x: float, world_y: float):
+        """
+        Trigger particle explosion at the given world coordinates
+        """
+        # Convert world position to screen (camera) coordinates so shader lines up with what the player sees.
+        screen_x = world_x - self.view_left
+        screen_y = world_y - CAMERA_OFFSET_Y
+        try:
+            self.shadertoy.program['pos'] = (screen_x, screen_y)
+            self.shadertoy.program['burstStart'] = self.time
+        except Exception:
+            pass
+        
+        self.particle_run = True
+        self.time_particle_start = self.time
 
     def reset(self):
         """
         resets the scene after death
         """
-        # Start the particle burst and freeze the game; the actual reset will occur in finish_reset() after the burst duration elapses.
-        # Set uniform data to send to the GLSL shader
-        # Convert world position to screen (camera) coordinates so shader lines up with what the player sees.
-        screen_x = self.player_sprite.center_x - self.view_left
-        screen_y = self.player_sprite.center_y - CAMERA_OFFSET_Y
-        try:
-            self.shadertoy.program['pos'] = (screen_x, screen_y)
-            self.shadertoy.program['burstStart'] = self.time
-        except Exception:
-            # If the shader/program doesn't accept the uniform for some reason,
-            # ignore and continue — the shader will fallback to using global time.
-            pass
-
+        self.trigger_particle_explosion(self.player_sprite.center_x, self.player_sprite.center_y)
         self.shake_camera()
-        self.particle_run = True
         # disable jetpack particles during reset
         self.jetpack_particle_run = False
         # record when the particle burst started
-        self.time_particle_start = self.time
         self.reset_start_time = self.time
         self.is_resetting = True
         # disable inputs and stop motion while resetting
@@ -381,9 +511,17 @@ class Level4(arcade.View):
 
         # reset moving parts
         self.door.reset()
+        self.door.can_be_touched = False
+        self.door.opacity = 0  # Hide door again
         self.jetpack_fuel = 100
         for fireball in self.fireball_list:
             fireball.reset()
+        self.cannon.reset(self.time)
+        # Reset buttons
+        for button in self.button_list:
+            button.reset()
+            button.sprite_list.visible = True
+        self.buttons_pressed_count = 0
         self.player_sprite.center_x = START_POS[0]
         self.player_sprite.center_y = START_POS[1]
         self.player_list.visible = True
@@ -400,6 +538,20 @@ class Level4(arcade.View):
         self.shake_camera()
 
     
+    def earthquake_camera(self, magnitude, shake_damping):
+        """ Shake the camera constantly """
+        
+        shake_direction = random.random() * 2 * math.pi
+        shake_vector = Vec2(
+            math.cos(shake_direction) * magnitude,
+            math.sin(shake_direction) * magnitude
+        )
+        # shake_vector = Vec2(magnitude, magnitude * 0.6)
+        shake_speed = 1.0
+        self.camera_sprites.shake(shake_vector,
+                                    speed=shake_speed,
+                                    damping=shake_damping)
+
     def shake_camera(self):
         """ Shake the camera """
         # Pick a random direction

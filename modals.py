@@ -1,4 +1,5 @@
 import arcade
+import math
 
 
 class MovingWall():
@@ -228,14 +229,16 @@ class Door():
     
 
 class Button():
-    def __init__(self, pos_x, pos_y, flipped_diagonally = True):
+    def __init__(self, pos_x, pos_y, flipped_diagonally = True, flipped_vertically = False):
         """ initializer """
         self.pos_x = pos_x
         self.pos_y = pos_y
         self.triggered = False
         self.sprite_list = arcade.SpriteList()
-        self.sprite1 = arcade.Sprite("data/sprites/button1.png", scale=0.25, center_x=pos_x, center_y=pos_y, flipped_diagonally=flipped_diagonally)
-        self.sprite2 = arcade.Sprite("data/sprites/button2.png", scale=0.25, center_x=pos_x, center_y=pos_y, flipped_diagonally=flipped_diagonally)
+        self.sprite1 = arcade.Sprite("data/sprites/button1.png", scale=0.25, center_x=pos_x, center_y=pos_y,
+         flipped_diagonally=flipped_diagonally, flipped_vertically=flipped_vertically)
+        self.sprite2 = arcade.Sprite("data/sprites/button2.png", scale=0.25, center_x=pos_x, center_y=pos_y,
+         flipped_diagonally=flipped_diagonally, flipped_vertically=flipped_vertically)
         self.sprite2.visible = False
         self.sprite_list.append(self.sprite1)
         self.sprite_list.append(self.sprite2)
@@ -290,3 +293,101 @@ class FireBall():
         self.pos_y = self.init_y
         self.v_x = 0
         self.v_y = 0
+
+
+class Missile():
+    def __init__(self, pos_x: int, pos_y: int, player_sprite: arcade.AnimatedTimeBasedSprite):
+        """ a missile class initializer"""
+        self.sprite = arcade.Sprite("data/sprites/missile.png", 2)
+        self.pos_x = pos_x
+        self.pos_y = pos_y
+        self.player_sprite = player_sprite
+        self.speed = 3.0  # constant speed magnitude
+        self.turn_rate = 0.3  # steering acceleration factor (how quickly it can turn)
+        self.sprite.center_x = pos_x
+        self.sprite.center_y = pos_y
+        
+        # Initialize velocity pointing right (positive x direction)
+        self.v_x = self.speed
+        self.v_y = 0
+        
+        # Update sprite rotation to match initial velocity
+        self._update_rotation()
+    
+    def _update_rotation(self):
+        """Update sprite rotation to match velocity direction"""
+        angle = math.degrees(math.atan2(self.v_y, self.v_x))
+        self.sprite.angle = angle - 90
+    
+    def draw(self):
+        """Draw the missile sprite"""
+        self.sprite.draw()
+    
+    def update(self):
+        """Update missile position with realistic physics - gradual steering"""
+        if self.player_sprite is None:
+            # If no target, just move in current direction
+            self.pos_x += self.v_x
+            self.pos_y += self.v_y
+            self.sprite.center_x = self.pos_x
+            self.sprite.center_y = self.pos_y
+            return
+        
+        # Calculate desired direction (toward player)
+        dx = self.player_sprite.center_x - self.pos_x
+        dy = self.player_sprite.center_y - self.pos_y
+        distance = (dx ** 2 + dy ** 2) ** 0.5
+        
+        if distance > 0:
+            # Normalize desired direction
+            desired_dir_x = dx / distance
+            desired_dir_y = dy / distance
+            
+            # Get current velocity direction (normalized)
+            current_speed = (self.v_x ** 2 + self.v_y ** 2) ** 0.5
+            if current_speed > 0:
+                current_dir_x = self.v_x / current_speed
+                current_dir_y = self.v_y / current_speed
+            else:
+                # If velocity is zero, use desired direction
+                current_dir_x = desired_dir_x
+                current_dir_y = desired_dir_y
+            
+            # Calculate steering direction (perpendicular to current velocity)
+            # The steering force is the component of desired direction perpendicular to current velocity
+            # Dot product to find parallel component
+            dot_product = desired_dir_x * current_dir_x + desired_dir_y * current_dir_y
+            
+            # Perpendicular component = desired - parallel
+            # parallel = current_dir * dot_product
+            parallel_x = current_dir_x * dot_product
+            parallel_y = current_dir_y * dot_product
+            
+            # Steering direction (perpendicular to velocity)
+            steer_x = desired_dir_x - parallel_x
+            steer_y = desired_dir_y - parallel_y
+            
+            # Normalize steering vector
+            steer_length = (steer_x ** 2 + steer_y ** 2) ** 0.5
+            if steer_length > 0:
+                steer_x /= steer_length
+                steer_y /= steer_length
+            
+            # Apply steering acceleration (limited by turn_rate)
+            self.v_x += steer_x * self.turn_rate
+            self.v_y += steer_y * self.turn_rate
+            
+            # Maintain constant speed by normalizing velocity
+            current_speed_after = (self.v_x ** 2 + self.v_y ** 2) ** 0.5
+            if current_speed_after > 0:
+                self.v_x = (self.v_x / current_speed_after) * self.speed
+                self.v_y = (self.v_y / current_speed_after) * self.speed
+        
+        # Update position based on velocity
+        self.pos_x += self.v_x
+        self.pos_y += self.v_y
+        self.sprite.center_x = self.pos_x
+        self.sprite.center_y = self.pos_y
+        
+        # Update rotation to match velocity direction
+        self._update_rotation()
