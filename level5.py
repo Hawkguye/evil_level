@@ -74,6 +74,9 @@ class Level5(arcade.View):
         self.obstacle_spawn_timer = 0.0
         self.obstacle_spawn_interval = 0.5
         self.obstacle_speed = 3.0
+        self.ground_spike_list = None
+        self.ground_spike_spawn_timer = 0.0
+        self.ground_spike_spawn_interval = 0.5
         
         # player info
         self.death = 0
@@ -129,6 +132,7 @@ class Level5(arcade.View):
         self.bkg_list = arcade.SpriteList()
         self.boss_list = arcade.SpriteList()
         self.obstacle_list = arcade.SpriteList()
+        self.ground_spike_list = arcade.SpriteList()
         self.player_sprite = arcade.AnimatedTimeBasedSprite()
 
         # set up player animation sprites
@@ -149,6 +153,7 @@ class Level5(arcade.View):
         # reset camera scrolling
         self.camera_target_x = 0
         self.obstacle_spawn_timer = 0.0
+        self.ground_spike_spawn_timer = 0.0
 
         # set up the map from Tiled
         map_name = "data/maps/level5.json"
@@ -181,8 +186,10 @@ class Level5(arcade.View):
         # Only draw door if it's active (can_be_touched)
         if self.door.can_be_touched:
             self.door.draw()
-        self.boss_list.draw()
         self.obstacle_list.draw()
+        # self.obstacle_list.draw_hit_boxes()
+        self.ground_spike_list.draw()
+        # self.ground_spike_list.draw_hit_boxes()
         self.player_list.draw()
         # self.player_list.draw_hit_boxes()
         # draw the sprite lists
@@ -190,6 +197,7 @@ class Level5(arcade.View):
             sprite_list.draw()
         if not self.is_resetting and self.game_on:
             self.draw_fuel_bar()
+        self.boss_list.draw()
 
         # Run the GLSL code
         if self.particle_run:
@@ -288,19 +296,33 @@ class Level5(arcade.View):
             if obstacle.center_x < -100:
                 obstacle.remove_from_sprite_lists()
         
+        # Update ground spikes
+        for spike in self.ground_spike_list:
+            spike.center_x -= self.obstacle_speed * delta_time * 60
+            if spike.center_x < -100:
+                spike.remove_from_sprite_lists()
+        
         # Spawn obstacles
         if self.game_on:
             self.obstacle_spawn_timer += delta_time
             if self.obstacle_spawn_timer >= self.obstacle_spawn_interval:
                 self.spawn_obstacle()
                 self.obstacle_spawn_timer = 0.0
-                self.obstacle_spawn_interval = random.uniform(1.0, 2.5)
+                self.obstacle_spawn_interval = random.uniform(0.3, 1.0)
+            
+            # Spawn ground spikes
+            self.ground_spike_spawn_timer += delta_time
+            if self.ground_spike_spawn_timer >= self.ground_spike_spawn_interval:
+                self.spawn_ground_spike()
+                self.ground_spike_spawn_timer = 0.0
+                self.ground_spike_spawn_interval = random.uniform(1.5, 2.5)
         
         # Call update on all sprites
         self.door.update()
         self.boss_list.update()
         self.boss_list.update_animation()
         self.obstacle_list.update()
+        self.ground_spike_list.update()
         self.player_list.update()
         self.player_list.update_animation()
         if self.game_on:
@@ -354,6 +376,11 @@ class Level5(arcade.View):
         # check obstacle collisions
         obstacle_hit_list = arcade.check_for_collision_with_list(self.player_sprite, self.obstacle_list)
         if obstacle_hit_list:
+            self.reset()
+        
+        # check ground spike collisions
+        ground_spike_hit_list = arcade.check_for_collision_with_list(self.player_sprite, self.ground_spike_list)
+        if ground_spike_hit_list:
             self.reset()
         
         # check if touched the door
@@ -418,7 +445,9 @@ class Level5(arcade.View):
         self.boss_sprite.center_y = 210
         self.camera_target_x = 0
         self.obstacle_spawn_timer = 0.0
+        self.ground_spike_spawn_timer = 0.0
         self.obstacle_list.clear()
+        self.ground_spike_list.clear()
         self.player_list.visible = True
 
     
@@ -476,18 +505,7 @@ class Level5(arcade.View):
         Anything between 0 and 1 will have the camera move to the location with a smoother
         pan
         """
-        # Scroll left
-        # left_boundary = self.view_left + VIEWPORT_MARGIN
-        # if self.player_sprite.left < left_boundary:
-        #     self.view_left -= left_boundary - self.player_sprite.left
-
-        # # Scroll right
-        # right_boundary = self.view_left + SCREEN_WIDTH - VIEWPORT_MARGIN
-        # if self.player_sprite.right > right_boundary:
-        #     self.view_left += self.player_sprite.right - right_boundary
-
-        # Scroll camera to target position
-        self.camera_sprites.move_to(Vec2(self.camera_target_x, 0), CAMERA_SPEED)
+        self.camera_sprites.move_to(Vec2(self.camera_target_x, 0), 0.2)
 
 
     def set_anim(self, y):
@@ -520,13 +538,13 @@ class Level5(arcade.View):
         """Spawn an obstacle at random position and angle"""
         obstacle_types = [
             ("data/sprites/bombline.png", 1.0),
-            ("data/sprites/lightning_32x32.png", 2.0),
-            ("data/sprites/lightning_32x64.png", 2.0),
-            ("data/sprites/spike.png", 1.0)
+            ("data/sprites/lightning_32x32.png", 1.0),
+            ("data/sprites/lightning_32x64.png", 1.0),
+            ("data/sprites/spike.png", 0.5)
         ]
         
         sprite_path, scale = random.choice(obstacle_types)
-        obstacle = arcade.Sprite(sprite_path, scale=scale)
+        obstacle = arcade.Sprite(sprite_path, scale=scale, hit_box_algorithm="Detailed")
         
         spawn_x = self.player_sprite.center_x + SCREEN_WIDTH + random.uniform(0, 200)
         spawn_y = random.uniform(100, SCREEN_HEIGHT - 100)
@@ -536,6 +554,18 @@ class Level5(arcade.View):
         obstacle.angle = random.uniform(0, 360)
         
         self.obstacle_list.append(obstacle)
+    
+    def spawn_ground_spike(self):
+        """spawn 1-4 ground spikes in a row"""
+        num_spikes = random.randint(1, 4)
+        base_spawn_x = self.player_sprite.center_x + SCREEN_WIDTH + 100
+        
+        for i in range(num_spikes):
+            spawn_x = base_spawn_x + (i * 38)
+            ground_spike = arcade.Sprite("data/sprites/ground_spike.png", scale=0.5, hit_box_algorithm="Detailed")
+            ground_spike.center_x = spawn_x
+            ground_spike.center_y = 108
+            self.ground_spike_list.append(ground_spike)
     
     def draw_fuel_bar(self):
         # arcade.draw_xywh_rectangle_filled(910, 200, 20, self.jetpack_fuel * 2, (255, 98, 0))
