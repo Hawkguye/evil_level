@@ -25,7 +25,7 @@ CAMERA_OFFSET_Y = 0
 
 START_POS = (300, 250)
 
-SPRITE_PATH = "data/sprites/sprite.png"
+SPRITE_PATH = "data/sprites/sprite_jetpack.png"
 
 class BOSS(arcade.AnimatedTimeBasedSprite):
     def __init__(self, center_x: float = 0, center_y: float = 0, scale: float = 1.0):

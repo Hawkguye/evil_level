@@ -25,7 +25,7 @@ CAMERA_OFFSET_Y = 0
 
 START_POS = (240, 250)
 
-SPRITE_PATH = "data/sprites/sprite.png"
+SPRITE_PATH = "data/sprites/sprite_jetpack.png"
 
 
 class Cannon:
@@ -73,7 +73,7 @@ class Cannon:
         """Update cannon and missiles, spawn new missile if interval elapsed"""
         # Spawn new missile if enough time has passed
         if current_time - self.last_spawn_time >= self.spawn_interval:
-            missile = Missile(self.sprite.center_x + 30, self.sprite.center_y, self.player_sprite)
+            missile = Missile(self.sprite.center_x + 30, self.sprite.center_y - 10, self.player_sprite)
             self.missile_list.append(missile)
             self.last_spawn_time = current_time
             # Start firing animation
@@ -217,15 +217,15 @@ class Level4(arcade.View):
         self.button_list = [self.button1, self.button2, self.button3]
         self.buttons_pressed_count = 0
 
-        self.fireball1 = FireBall(290, 480, 173)
-        self.fireball2 = FireBall(460, 480, 235)
-        self.fireball3 = FireBall(734, 480, 333)
-        self.fireball4 = FireBall(990, 480, 140)
-        self.fireball5 = FireBall(1168, 480, 210)
-        self.fireball6 = FireBall(1400, 480, 265)
+        self.fireball1 = FireBall(290, 520, 173)
+        self.fireball2 = FireBall(460, 520, 235)
+        self.fireball3 = FireBall(734, 520, 333)
+        self.fireball4 = FireBall(990, 520, 140)
+        self.fireball5 = FireBall(1168, 520, 210)
+        self.fireball6 = FireBall(1400, 520, 265)
         self.fireball_list = [self.fireball1, self.fireball2, self.fireball3, self.fireball4, self.fireball5, self.fireball6]
 
-        self.cannon = Cannon(170, 445, self.player_sprite)
+        self.cannon = Cannon(170, 445, self.player_sprite) # another one at (1550, 445)
 
         self.vis_sprites_list = [self.platform_list]
 
