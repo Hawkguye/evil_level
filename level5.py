@@ -25,7 +25,7 @@ CAMERA_OFFSET_Y = 0
 
 START_POS = (300, 250)
 
-SPRITE_PATH = "data/sprites/sprite.png"
+SPRITE_PATH = "data/sprites/sprite_jetpack.png"
 
 class Stone(arcade.Sprite):
     """Stone class for throwable objects"""
