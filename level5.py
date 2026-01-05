@@ -27,18 +27,38 @@ START_POS = (300, 250)
 
 SPRITE_PATH = "data/sprites/sprite.png"
 
+class Stone(arcade.Sprite):
+    """Stone class for throwable objects"""
+    def __init__(self, center_x: float, center_y: float, scale: float = 0.25):
+        super().__init__("data/sprites/stone.png", scale=scale, hit_box_algorithm="Detailed")
+        self.center_x = center_x
+        self.center_y = center_y
+        self.v_x = 0.0
+        self.v_y = 0.0
+        self.thrown = False  # Whether this stone has been thrown
+
+class ThrownStone(arcade.Sprite):
+    """Thrown stone with physics"""
+    def __init__(self, center_x: float, center_y: float, v_x: float, v_y: float):
+        super().__init__("data/sprites/stone.png", scale=0.25, hit_box_algorithm="Detailed")
+        self.center_x = center_x
+        self.center_y = center_y
+        self.v_x = v_x
+        self.v_y = v_y
+
 class BOSS(arcade.AnimatedTimeBasedSprite):
     def __init__(self, center_x: float = 0, center_y: float = 0, scale: float = 1.0):
         super().__init__()
         boss_sprite_path = "data/sprites/stickman.png"
-        # Sprite sheet is 64x16 with 4 frames, each frame is 128x128
         for i in range(4):
             texture = arcade.load_texture(boss_sprite_path, i * 256, 0, 256, 256)
-            anim = arcade.AnimationKeyframe(i, 250, texture)  # 100ms per frame
+            anim = arcade.AnimationKeyframe(i, 250, texture)  # 250ms per frame
             self.frames.append(anim)
         self.scale = scale
         self.center_x = center_x
         self.center_y = center_y
+        self.max_health = 100
+        self.health = 100
 
 class Level5(arcade.View):
     """ windows class """
@@ -61,9 +81,16 @@ class Level5(arcade.View):
         self.moving_wall_list = None
         self.boss_list = None
         self.obstacle_list = None
+        self.stone_list = None
+        self.thrown_stone_list = None
 
         # specific to the levels
         self.button_list = None
+        
+        # stone inventory
+        self.stone_inventory = 0
+        self.mouse_x = 0
+        self.mouse_y = 0
         
         # camera scrolling
         self.camera_target_x = 0
@@ -77,6 +104,10 @@ class Level5(arcade.View):
         self.ground_spike_list = None
         self.ground_spike_spawn_timer = 0.0
         self.ground_spike_spawn_interval = 0.5
+        
+        # stone spawning
+        self.stone_spawn_timer = 0.0
+        self.stone_spawn_interval = 2.0
         
         # player info
         self.death = 0
@@ -97,8 +128,6 @@ class Level5(arcade.View):
         self.camera_sprites = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.camera_gui = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.camera_sprites.move_to(Vec2(0, CAMERA_OFFSET_Y))
-        # Used in scrolling
-        # self.view_bottom = 0
 
         # reset/freeze state for particle burst
         self.is_resetting = False
@@ -133,6 +162,8 @@ class Level5(arcade.View):
         self.boss_list = arcade.SpriteList()
         self.obstacle_list = arcade.SpriteList()
         self.ground_spike_list = arcade.SpriteList()
+        self.stone_list = arcade.SpriteList()
+        self.thrown_stone_list = arcade.SpriteList()
         self.player_sprite = arcade.AnimatedTimeBasedSprite()
 
         # set up player animation sprites
@@ -148,12 +179,16 @@ class Level5(arcade.View):
 
         # set up boss sprite
         self.boss_sprite = BOSS(center_x=100, center_y=210, scale=1.0)
+        self.boss_sprite.max_health = 100
+        self.boss_sprite.health = 100
         self.boss_list.append(self.boss_sprite)
         
         # reset camera scrolling
         self.camera_target_x = 0
         self.obstacle_spawn_timer = 0.0
         self.ground_spike_spawn_timer = 0.0
+        self.stone_spawn_timer = 0.0
+        self.stone_inventory = 0
 
         # set up the map from Tiled
         map_name = "data/maps/level5.json"
@@ -197,7 +232,12 @@ class Level5(arcade.View):
             sprite_list.draw()
         if not self.is_resetting and self.game_on:
             self.draw_fuel_bar()
+        self.stone_list.draw()
+        self.thrown_stone_list.draw()
         self.boss_list.draw()
+        if self.game_on:
+            self.draw_boss_health_bar()
+            self.draw_trajectory_arrow()
 
         # Run the GLSL code
         if self.particle_run:
@@ -215,6 +255,7 @@ class Level5(arcade.View):
         arcade.draw_text(f"jetpack fuel: {self.jetpack_fuel}; jump vel: {round(self.player_sprite.change_y)}", 50, 450, font_size=16, color=(0, 0, 0))
         arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 550, font_size=16)
+        arcade.draw_text(f"Stones: {self.stone_inventory}", 50, 400, font_size=16, color=(0, 0, 0))
         arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
         
     
@@ -228,29 +269,27 @@ class Level5(arcade.View):
             return
         if key == arcade.key.UP or key == arcade.key.SPACE or key == arcade.key.W:
             self.jump_pressed = True
-        # Horizontal movement disabled for Jetpack Joyride style
-        # if key == arcade.key.LEFT or key == arcade.key.A:
-        #     self.left_pressed = True
-        # if key == arcade.key.RIGHT or key == arcade.key.D:
-        #     self.right_pressed = True
 
 
     def on_key_release(self, key, modifiers):
         """Called when the user releases a key. """
-
         if key == arcade.key.UP or key == arcade.key.SPACE or key == arcade.key.W:
             self.jump_pressed = False
-        # Horizontal movement disabled for Jetpack Joyride style
-        # if key == arcade.key.LEFT or key == arcade.key.A:
-        #     self.left_pressed = False
-        # if key == arcade.key.RIGHT or key == arcade.key.D:
-        #     self.right_pressed = False
 
 
+    def on_mouse_motion(self, x, y, dx, dy):
+        """Called when the mouse moves"""
+        self.mouse_x = x
+        self.mouse_y = y
+    
     def on_mouse_press(self, x, y, button, modifiers):
         """ called whenver mouse is clicked """
         if button == arcade.MOUSE_BUTTON_LEFT:
-            print("left mouse button pressed at ", round(x + self.camera_target_x), round(y + CAMERA_OFFSET_Y))
+            # Throw stone if player has stones in inventory
+            if self.game_on and self.stone_inventory > 0:
+                self.throw_stone(x, y)
+            else:
+                print("left mouse button pressed at ", round(x + self.camera_target_x), round(y + CAMERA_OFFSET_Y))
 
 
     def update(self, delta_time):
@@ -302,6 +341,23 @@ class Level5(arcade.View):
             if spike.center_x < -100:
                 spike.remove_from_sprite_lists()
         
+        # Update stones on ground
+        for stone in self.stone_list:
+            stone.center_x -= self.obstacle_speed * delta_time * 60
+            if stone.center_x < -100:
+                stone.remove_from_sprite_lists()
+        
+        # Update thrown stones
+        for thrown_stone in self.thrown_stone_list:
+            thrown_stone.v_y -= GRAVITY * delta_time * 60
+            thrown_stone.center_x += thrown_stone.v_x * delta_time * 60
+            thrown_stone.center_y += thrown_stone.v_y * delta_time * 60
+            # Remove if off screen
+            if thrown_stone.center_x < -100 or thrown_stone.center_x > self.player_sprite.center_x + SCREEN_WIDTH + 200:
+                thrown_stone.remove_from_sprite_lists()
+            if thrown_stone.center_y < -100:
+                thrown_stone.remove_from_sprite_lists()
+        
         # Spawn obstacles
         if self.game_on:
             self.obstacle_spawn_timer += delta_time
@@ -316,6 +372,29 @@ class Level5(arcade.View):
                 self.spawn_ground_spike()
                 self.ground_spike_spawn_timer = 0.0
                 self.ground_spike_spawn_interval = random.uniform(1.5, 2.5)
+            
+            # Spawn stones
+            self.stone_spawn_timer += delta_time
+            if self.stone_spawn_timer >= self.stone_spawn_interval:
+                self.spawn_stone()
+                self.stone_spawn_timer = 0.0
+                self.stone_spawn_interval = random.uniform(1.5, 3.0)
+        
+        # Check stone pickup
+        if self.game_on:
+            stone_hit_list = arcade.check_for_collision_with_list(self.player_sprite, self.stone_list)
+            for stone in stone_hit_list:
+                stone.remove_from_sprite_lists()
+                self.stone_inventory += 1
+        
+        # Check thrown stone collisions with BOSS
+        if self.game_on:
+            boss_hit_list = arcade.check_for_collision_with_list(self.boss_sprite, self.thrown_stone_list)
+            for thrown_stone in boss_hit_list:
+                thrown_stone.remove_from_sprite_lists()
+                self.boss_sprite.health -= 10
+                if self.boss_sprite.health < 0:
+                    self.boss_sprite.health = 0
         
         # Call update on all sprites
         self.door.update()
@@ -323,6 +402,8 @@ class Level5(arcade.View):
         self.boss_list.update_animation()
         self.obstacle_list.update()
         self.ground_spike_list.update()
+        self.stone_list.update()
+        self.thrown_stone_list.update()
         self.player_list.update()
         self.player_list.update_animation()
         if self.game_on:
@@ -448,6 +529,10 @@ class Level5(arcade.View):
         self.ground_spike_spawn_timer = 0.0
         self.obstacle_list.clear()
         self.ground_spike_list.clear()
+        self.stone_list.clear()
+        self.thrown_stone_list.clear()
+        self.boss_sprite.health = 100
+        self.stone_inventory = 0
         self.player_list.visible = True
 
     
@@ -461,20 +546,6 @@ class Level5(arcade.View):
         self.door.start_moving_down()
         self.shake_camera()
 
-    
-    def earthquake_camera(self, magnitude, shake_damping):
-        """ Shake the camera constantly """
-        
-        shake_direction = random.random() * 2 * math.pi
-        shake_vector = Vec2(
-            math.cos(shake_direction) * magnitude,
-            math.sin(shake_direction) * magnitude
-        )
-        # shake_vector = Vec2(magnitude, magnitude * 0.6)
-        shake_speed = 1.0
-        self.camera_sprites.shake(shake_vector,
-                                    speed=shake_speed,
-                                    damping=shake_damping)
 
     def shake_camera(self):
         """ Shake the camera """
@@ -500,10 +571,6 @@ class Level5(arcade.View):
     def scroll_to_player(self):
         """ 
         scroll the window to the player
-
-        if CAMERA_SPEED is 1, the camera will immediately move to the desired position.
-        Anything between 0 and 1 will have the camera move to the location with a smoother
-        pan
         """
         self.camera_sprites.move_to(Vec2(self.camera_target_x, 0), 0.2)
 
@@ -568,13 +635,111 @@ class Level5(arcade.View):
             self.ground_spike_list.append(ground_spike)
     
     def draw_fuel_bar(self):
-        # arcade.draw_xywh_rectangle_filled(910, 200, 20, self.jetpack_fuel * 2, (255, 98, 0))
-        # arcade.draw_rectangle_outline(920, 300, 20, 200, (0, 0, 0), 5)
         x = int(self.player_sprite.center_x - 18)
         y = int(self.player_sprite.center_y)
         arcade.draw_xywh_rectangle_filled(x-3, y-25, 6, self.jetpack_fuel / 2, (255, 98, 0))
         arcade.draw_rectangle_outline(x, y, 6, 50, (0, 0, 0))
+    
+    def draw_boss_health_bar(self):
+        """Draw health bar above BOSS"""
+        bar_width = 120
+        bar_height = 12
+        bar_x = self.boss_sprite.center_x
+        bar_y = self.boss_sprite.center_y + 140
         
+        # Draw background (red)
+        arcade.draw_rectangle_filled(bar_x, bar_y, bar_width, bar_height, (200, 0, 0))
+        
+        # Draw health (green)
+        health_ratio = self.boss_sprite.health / self.boss_sprite.max_health
+        health_width = bar_width * health_ratio
+        if health_width > 0:
+            arcade.draw_rectangle_filled(bar_x - (bar_width - health_width) / 2, bar_y, health_width, bar_height, (0, 200, 0))
+        
+        # Draw border
+        arcade.draw_rectangle_outline(bar_x, bar_y, bar_width, bar_height, (0, 0, 0), 2)
+    
+    def draw_trajectory_arrow(self):
+        """Draw trajectory arrow when player has stones"""
+        if self.stone_inventory > 0:
+            # Get world coordinates of mouse
+            world_mouse_x = self.mouse_x + self.camera_target_x
+            world_mouse_y = self.mouse_y + CAMERA_OFFSET_Y
+            
+            # Player position
+            player_x = self.player_sprite.center_x
+            player_y = self.player_sprite.center_y
+            
+            # Calculate direction
+            dx = world_mouse_x - player_x
+            dy = world_mouse_y - player_y
+            distance = math.sqrt(dx * dx + dy * dy)
+            
+            if distance > 0:
+                # Normalize direction
+                dir_x = dx / distance
+                dir_y = dy / distance
+                
+                # Arrow length (visual only)
+                arrow_length = min(100, distance * 0.5)
+                arrow_end_x = player_x + dir_x * arrow_length
+                arrow_end_y = player_y + dir_y * arrow_length
+                
+                # Draw arrow line
+                arcade.draw_line(player_x, player_y, arrow_end_x, arrow_end_y, (255, 255, 0), 3)
+                
+                # Draw arrowhead
+                angle = math.atan2(dir_y, dir_x)
+                arrowhead_size = 10
+                arrowhead_x1 = arrow_end_x - arrowhead_size * math.cos(angle - 0.5)
+                arrowhead_y1 = arrow_end_y - arrowhead_size * math.sin(angle - 0.5)
+                arrowhead_x2 = arrow_end_x - arrowhead_size * math.cos(angle + 0.5)
+                arrowhead_y2 = arrow_end_y - arrowhead_size * math.sin(angle + 0.5)
+                arcade.draw_triangle_filled(arrow_end_x, arrow_end_y, arrowhead_x1, arrowhead_y1, arrowhead_x2, arrowhead_y2, (255, 255, 0))
+    
+    def spawn_stone(self):
+        """Spawn a stone at random position"""
+        stone = Stone(
+            center_x=self.player_sprite.center_x + SCREEN_WIDTH + random.uniform(0, 200),
+            center_y=random.uniform(120, SCREEN_HEIGHT - 100),
+            scale=0.25
+        )
+        self.stone_list.append(stone)
+    
+    def throw_stone(self, mouse_x, mouse_y):
+        """Throw a stone towards mouse position"""
+        if self.stone_inventory <= 0:
+            return
+        
+        # Convert screen mouse coordinates to world coordinates
+        world_mouse_x = mouse_x + self.camera_target_x
+        world_mouse_y = mouse_y + CAMERA_OFFSET_Y
+        
+        # Player position
+        player_x = self.player_sprite.center_x
+        player_y = self.player_sprite.center_y
+        
+        # Calculate direction and velocity
+        dx = world_mouse_x - player_x
+        dy = world_mouse_y - player_y
+        distance = math.sqrt(dx * dx + dy * dy)
+        
+        if distance > 0:
+            # Normalize direction
+            dir_x = dx / distance
+            dir_y = dy / distance
+            
+            # Throw velocity (adjust speed as needed)
+            throw_speed = 8.0
+            v_x = dir_x * throw_speed
+            v_y = dir_y * throw_speed
+            
+            # Create thrown stone
+            thrown_stone = ThrownStone(player_x, player_y, v_x, v_y)
+            self.thrown_stone_list.append(thrown_stone)
+            
+            # Remove one stone from inventory
+            self.stone_inventory -= 1
 
 def main():
     """ main method """
