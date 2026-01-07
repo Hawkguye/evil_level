@@ -6,6 +6,7 @@ from level1 import Level1
 from level2 import Level2
 from level3 import Level3
 from level4 import Level4
+from level5 import Level5
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 600
@@ -38,6 +39,10 @@ class MenuView(arcade.View):
         self.v_box.add(level4_button.with_space_around(bottom=20))
         level4_button.on_click = self.start_level4
 
+        level5_button = arcade.gui.UIFlatButton(text="Level 5", width=200)
+        self.v_box.add(level5_button.with_space_around(bottom=20))
+        level5_button.on_click = self.start_level5
+
         self.manager.add(
             arcade.gui.UIAnchorWidget(
                 anchor_x="center_x",
@@ -60,6 +65,10 @@ class MenuView(arcade.View):
     def start_level4(self, event):
         level4_view = Level4(self.window)
         self.window.show_view(level4_view)
+
+    def start_level5(self, event):
+        level5_view = Level5(self.window)
+        self.window.show_view(level5_view)
 
     def on_show_view(self):
         arcade.set_background_color((255, 255, 255))

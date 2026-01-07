@@ -17,7 +17,7 @@ TILE_SCALING = 0.25
 MOVE_SPEED = 2
 JUMP_SPEED = 3
 JETPACK_SPEED = 0.4
-GRAVITY = 0.2
+GRAVITY = 0.15
 
 VIEWPORT_MARGIN = 400
 CAMERA_SPEED = 0.5
@@ -30,7 +30,7 @@ SPRITE_PATH = "data/sprites/sprite_jetpack.png"
 class Stone(arcade.Sprite):
     """Stone class for throwable objects"""
     def __init__(self, center_x: float, center_y: float, scale: float = 0.25):
-        super().__init__("data/sprites/stone.png", scale=scale, hit_box_algorithm="Detailed")
+        super().__init__("data/sprites/stone.png", scale=scale)
         self.center_x = center_x
         self.center_y = center_y
         self.v_x = 0.0
@@ -40,7 +40,7 @@ class Stone(arcade.Sprite):
 class ThrownStone(arcade.Sprite):
     """Thrown stone with physics"""
     def __init__(self, center_x: float, center_y: float, v_x: float, v_y: float):
-        super().__init__("data/sprites/stone.png", scale=0.25, hit_box_algorithm="Detailed")
+        super().__init__("data/sprites/stone.png", scale=0.25)
         self.center_x = center_x
         self.center_y = center_y
         self.v_x = v_x
@@ -49,9 +49,9 @@ class ThrownStone(arcade.Sprite):
 class BOSS(arcade.AnimatedTimeBasedSprite):
     def __init__(self, center_x: float = 0, center_y: float = 0, scale: float = 1.0):
         super().__init__()
-        boss_sprite_path = "data/sprites/stickman.png"
+        self.boss_sprite_path = "data/sprites/stickman.png"
         for i in range(4):
-            texture = arcade.load_texture(boss_sprite_path, i * 256, 0, 256, 256)
+            texture = arcade.load_texture(self.boss_sprite_path, i * 256, 0, 256, 256)
             anim = arcade.AnimationKeyframe(i, 250, texture)  # 250ms per frame
             self.frames.append(anim)
         self.scale = scale
@@ -59,6 +59,25 @@ class BOSS(arcade.AnimatedTimeBasedSprite):
         self.center_y = center_y
         self.max_health = 100
         self.health = 100
+        self.is_hurt = False
+    
+    def hurt(self):
+        self.health -= 10
+        if self.health <= 0:
+            self.health = 0
+            print("BOSS defeated")
+        self.frames.clear()
+        for i in range(4):
+            texture = arcade.load_texture(self.boss_sprite_path, i * 256, 256, 256, 256)
+            anim = arcade.AnimationKeyframe(i, 250, texture)
+            self.frames.append(anim)
+    
+    def reset_anim(self):
+        self.frames.clear()
+        for i in range(4):
+            texture = arcade.load_texture(self.boss_sprite_path, i * 256, 0, 256, 256)
+            anim = arcade.AnimationKeyframe(i, 250, texture)
+            self.frames.append(anim)
 
 class Level5(arcade.View):
     """ windows class """
@@ -178,7 +197,7 @@ class Level5(arcade.View):
         self.player_list.append(self.player_sprite)
 
         # set up boss sprite
-        self.boss_sprite = BOSS(center_x=100, center_y=210, scale=1.0)
+        self.boss_sprite = BOSS(center_x=100, center_y=205, scale=1.0)
         self.boss_sprite.max_health = 100
         self.boss_sprite.health = 100
         self.boss_list.append(self.boss_sprite)
@@ -316,6 +335,7 @@ class Level5(arcade.View):
             self.jetpack_particle_run = False
             if self.door.move_over:
                 self.level_complete()
+            return
         
         # Camera scrolling
         if self.camera_target_x < self.camera_max_x:
@@ -392,9 +412,7 @@ class Level5(arcade.View):
             boss_hit_list = arcade.check_for_collision_with_list(self.boss_sprite, self.thrown_stone_list)
             for thrown_stone in boss_hit_list:
                 thrown_stone.remove_from_sprite_lists()
-                self.boss_sprite.health -= 10
-                if self.boss_sprite.health < 0:
-                    self.boss_sprite.health = 0
+                self.boss_sprite.hurt()
         
         # Call update on all sprites
         self.door.update()
@@ -424,7 +442,7 @@ class Level5(arcade.View):
                 if self.player_sprite.change_y < 0:
                     self.player_sprite.change_y = 0
                 self.player_sprite.change_y += JETPACK_SPEED
-                self.jetpack_fuel -= 1
+                self.jetpack_fuel -= 0.5
                 # Enable jetpack particles
                 if not self.jetpack_particle_run:
                     self.jetpack_particle_run = True
@@ -661,6 +679,7 @@ class Level5(arcade.View):
     
     def draw_trajectory_arrow(self):
         """Draw trajectory arrow when player has stones"""
+        COLOR = (120, 13, 13)
         if self.stone_inventory > 0:
             # Get world coordinates of mouse
             world_mouse_x = self.mouse_x + self.camera_target_x
@@ -680,13 +699,13 @@ class Level5(arcade.View):
                 dir_x = dx / distance
                 dir_y = dy / distance
                 
-                # Arrow length (visual only)
-                arrow_length = min(100, distance * 0.5)
+                # Arrow length
+                arrow_length = 50
                 arrow_end_x = player_x + dir_x * arrow_length
                 arrow_end_y = player_y + dir_y * arrow_length
                 
                 # Draw arrow line
-                arcade.draw_line(player_x, player_y, arrow_end_x, arrow_end_y, (255, 255, 0), 3)
+                arcade.draw_line(player_x, player_y, arrow_end_x, arrow_end_y, COLOR, 3)
                 
                 # Draw arrowhead
                 angle = math.atan2(dir_y, dir_x)
@@ -695,7 +714,7 @@ class Level5(arcade.View):
                 arrowhead_y1 = arrow_end_y - arrowhead_size * math.sin(angle - 0.5)
                 arrowhead_x2 = arrow_end_x - arrowhead_size * math.cos(angle + 0.5)
                 arrowhead_y2 = arrow_end_y - arrowhead_size * math.sin(angle + 0.5)
-                arcade.draw_triangle_filled(arrow_end_x, arrow_end_y, arrowhead_x1, arrowhead_y1, arrowhead_x2, arrowhead_y2, (255, 255, 0))
+                arcade.draw_triangle_filled(arrow_end_x, arrow_end_y, arrowhead_x1, arrowhead_y1, arrowhead_x2, arrowhead_y2, COLOR)
     
     def spawn_stone(self):
         """Spawn a stone at random position"""
