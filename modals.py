@@ -187,6 +187,15 @@ class Door():
         self.move_speed = move_speed
         self.move_distance = move_distance
         self.can_be_touched = False
+    
+    def start_moving_left(self, move_speed, move_distance):
+        """ start left movement and fade in """
+        self.is_moving = True
+        self.move_direction = 'left'
+        self.moved = 0
+        self.move_speed = move_speed
+        self.move_distance = move_distance
+        self.can_be_touched = False
 
 
     def update(self):
@@ -210,6 +219,11 @@ class Door():
                 self.pos_y = 180
                 self.opacity = 255
                 self.can_be_touched = True
+            
+            elif self.move_direction == 'left':
+                # finish appearing, keep position
+                self.opacity = 255
+                self.can_be_touched = True
 
             self.is_moving = False
             self.move_direction = None
@@ -226,6 +240,12 @@ class Door():
             self.moved += delta
             # fade out as the door moves
             self.opacity = max(0, 255 * (1.0 - self.moved / self.move_distance))
+        
+        elif self.move_direction == 'left':
+            self.pos_x -= delta
+            self.moved += delta
+            # fade in as the door moves
+            self.opacity = min(255, 255 * (self.moved / self.move_distance))
     
 
 class Button():

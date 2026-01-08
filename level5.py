@@ -52,7 +52,7 @@ class BOSS(arcade.AnimatedTimeBasedSprite):
         self.boss_sprite_path = "data/sprites/stickman.png"
         for i in range(4):
             texture = arcade.load_texture(self.boss_sprite_path, i * 256, 0, 256, 256)
-            anim = arcade.AnimationKeyframe(i, 250, texture)  # 250ms per frame
+            anim = arcade.AnimationKeyframe(i, 150, texture)  # 250ms per frame
             self.frames.append(anim)
         self.scale = scale
         self.center_x = center_x
@@ -60,24 +60,32 @@ class BOSS(arcade.AnimatedTimeBasedSprite):
         self.max_health = 100
         self.health = 100
         self.is_hurt = False
+        self.hurt_end_time = 0.0
     
-    def hurt(self):
+    def hurt(self, current_time: float):
+        """Apply damage and swap to hurt textures"""
         self.health -= 10
         if self.health <= 0:
             self.health = 0
             print("BOSS defeated")
+        self.is_hurt = True
+        self.hurt_end_time = current_time + 0.3
         self.frames.clear()
         for i in range(4):
+            # Use the red-tinted row of the sprite sheet
             texture = arcade.load_texture(self.boss_sprite_path, i * 256, 256, 256, 256)
-            anim = arcade.AnimationKeyframe(i, 250, texture)
+            anim = arcade.AnimationKeyframe(i, 150, texture)
             self.frames.append(anim)
     
     def reset_anim(self):
+        """Restore normal textures"""
         self.frames.clear()
         for i in range(4):
             texture = arcade.load_texture(self.boss_sprite_path, i * 256, 0, 256, 256)
             anim = arcade.AnimationKeyframe(i, 250, texture)
             self.frames.append(anim)
+        self.is_hurt = False
+        self.hurt_end_time = 0.0
 
 class Level5(arcade.View):
     """ windows class """
@@ -110,10 +118,12 @@ class Level5(arcade.View):
         self.stone_inventory = 0
         self.mouse_x = 0
         self.mouse_y = 0
+        self.stone_icon_texture = None
         
         # camera scrolling
         self.camera_target_x = 0
         self.scroll_speed = 2.0
+        self.scroll_deceleration = 0.02
         self.camera_max_x = 200
         
         # obstacle spawning
@@ -132,6 +142,12 @@ class Level5(arcade.View):
         self.death = 0
         self.player_sprite = None
         self.boss_sprite = None
+        self.boss_defeated = False
+        self.door_intro_started = False
+        self.boss_fade_started = False
+        self.player_anim_stopped = False
+        self.boss_fade_started = False
+        self.player_anim_stopped = False
 
         # simple physics engine
         self.jetpack_fuel = 100
@@ -184,6 +200,7 @@ class Level5(arcade.View):
         self.stone_list = arcade.SpriteList()
         self.thrown_stone_list = arcade.SpriteList()
         self.player_sprite = arcade.AnimatedTimeBasedSprite()
+        self.stone_icon_texture = arcade.load_texture("data/sprites/stone.png")
 
         # set up player animation sprites
         texture = arcade.load_texture(SPRITE_PATH, 0, 0, 128, 128)
@@ -204,10 +221,13 @@ class Level5(arcade.View):
         
         # reset camera scrolling
         self.camera_target_x = 0
+        self.scroll_speed = 2.0
         self.obstacle_spawn_timer = 0.0
         self.ground_spike_spawn_timer = 0.0
         self.stone_spawn_timer = 0.0
         self.stone_inventory = 0
+        self.boss_defeated = False
+        self.door_intro_started = False
 
         # set up the map from Tiled
         map_name = "data/maps/level5.json"
@@ -237,8 +257,8 @@ class Level5(arcade.View):
         self.camera_sprites.use()
 
         self.background.draw()
-        # Only draw door if it's active (can_be_touched)
-        if self.door.can_be_touched:
+        # Draw door if it's active or moving in
+        if self.door.can_be_touched or self.door.is_moving:
             self.door.draw()
         self.obstacle_list.draw()
         # self.obstacle_list.draw_hit_boxes()
@@ -271,11 +291,12 @@ class Level5(arcade.View):
 
         # draw the gui
         self.camera_gui.use()
-        arcade.draw_text(f"jetpack fuel: {self.jetpack_fuel}; jump vel: {round(self.player_sprite.change_y)}", 50, 450, font_size=16, color=(0, 0, 0))
+        # arcade.draw_text(f"jetpack fuel: {self.jetpack_fuel}; jump vel: {round(self.player_sprite.change_y)}", 50, 450, font_size=16, color=(0, 0, 0))
         arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 550, font_size=16)
-        arcade.draw_text(f"Stones: {self.stone_inventory}", 50, 400, font_size=16, color=(0, 0, 0))
-        arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
+        # arcade.draw_text(f"Stones: {self.stone_inventory}", 50, 400, font_size=16, color=(0, 0, 0))
+        # arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
+        self.draw_stone_ui()
         
     
     def on_key_press(self, key, modifiers):
@@ -288,12 +309,20 @@ class Level5(arcade.View):
             return
         if key == arcade.key.UP or key == arcade.key.SPACE or key == arcade.key.W:
             self.jump_pressed = True
+        if key == arcade.key.LEFT or key == arcade.key.A:
+            self.left_pressed = True
+        if key == arcade.key.RIGHT or key == arcade.key.D:
+            self.right_pressed = True
 
 
     def on_key_release(self, key, modifiers):
         """Called when the user releases a key. """
         if key == arcade.key.UP or key == arcade.key.SPACE or key == arcade.key.W:
             self.jump_pressed = False
+        if key == arcade.key.LEFT or key == arcade.key.A:
+            self.left_pressed = False
+        if key == arcade.key.RIGHT or key == arcade.key.D:
+            self.right_pressed = False
 
 
     def on_mouse_motion(self, x, y, dx, dy):
@@ -335,19 +364,22 @@ class Level5(arcade.View):
             self.jetpack_particle_run = False
             if self.door.move_over:
                 self.level_complete()
-            return
         
-        # Camera scrolling
-        if self.camera_target_x < self.camera_max_x:
+        # Camera scrolling (slow down after boss defeat)
+        if self.boss_defeated and self.scroll_speed > 0:
+            self.scroll_speed = max(0, self.scroll_speed - self.scroll_deceleration * delta_time * 60)
+        if self.camera_target_x < self.camera_max_x and self.scroll_speed > 0:
             move_amount = self.scroll_speed * delta_time * 60
             self.camera_target_x += move_amount
             if self.camera_target_x > self.camera_max_x:
                 self.camera_target_x = self.camera_max_x
             
             # Move BOSS and player right at same pace as camera (only while camera is scrolling)
-            if self.game_on:
+            if self.game_on and not self.boss_defeated:
                 self.boss_sprite.center_x += move_amount
                 self.player_sprite.center_x += move_amount
+        if self.boss_defeated:
+            self.handle_boss_fade_and_idle()
         
         # Update obstacles
         for obstacle in self.obstacle_list:
@@ -379,7 +411,7 @@ class Level5(arcade.View):
                 thrown_stone.remove_from_sprite_lists()
         
         # Spawn obstacles
-        if self.game_on:
+        if self.game_on and not self.boss_defeated:
             self.obstacle_spawn_timer += delta_time
             if self.obstacle_spawn_timer >= self.obstacle_spawn_interval:
                 self.spawn_obstacle()
@@ -412,23 +444,40 @@ class Level5(arcade.View):
             boss_hit_list = arcade.check_for_collision_with_list(self.boss_sprite, self.thrown_stone_list)
             for thrown_stone in boss_hit_list:
                 thrown_stone.remove_from_sprite_lists()
-                self.boss_sprite.hurt()
+                self.boss_sprite.hurt(self.time)
+            # Reset boss animation after hurt duration
+            if self.boss_sprite.is_hurt and self.time >= self.boss_sprite.hurt_end_time:
+                self.boss_sprite.reset_anim()
+            if self.boss_sprite.health <= 0 and not self.boss_defeated:
+                self.start_boss_defeat_sequence()
         
         # Call update on all sprites
         self.door.update()
         self.boss_list.update()
-        self.boss_list.update_animation()
+        if not self.boss_fade_started:
+            self.boss_list.update_animation()
         self.obstacle_list.update()
         self.ground_spike_list.update()
         self.stone_list.update()
         self.thrown_stone_list.update()
         self.player_list.update()
-        self.player_list.update_animation()
+        if not self.player_anim_stopped:
+            self.player_list.update_animation()
         if self.game_on:
             self.physics_engine.update()
+        else:
+            return
         
-        # Horizontal movement disabled - player moves with camera
-        self.player_sprite.change_x = 0
+        # Horizontal movement disabled until boss is defeated
+        if self.boss_defeated:
+            if self.left_pressed and not self.right_pressed:
+                self.player_sprite.change_x = -MOVE_SPEED
+            elif self.right_pressed and not self.left_pressed:
+                self.player_sprite.change_x = MOVE_SPEED
+            else:
+                self.player_sprite.change_x = 0
+        else:
+            self.player_sprite.change_x = 0
 
         if self.physics_engine.can_jump():
             if self.jetpack_fuel < 100:
@@ -463,7 +512,8 @@ class Level5(arcade.View):
             self.player_sprite.change_y = 3
 
         # Keep player animation running to the right
-        self.set_anim(384)
+        if not self.player_anim_stopped:
+            self.set_anim(384)
 
         # out of limit, death
         if self.player_sprite.center_y < 0:
@@ -543,6 +593,7 @@ class Level5(arcade.View):
         self.boss_sprite.center_x = 100
         self.boss_sprite.center_y = 210
         self.camera_target_x = 0
+        self.scroll_speed = 2.0
         self.obstacle_spawn_timer = 0.0
         self.ground_spike_spawn_timer = 0.0
         self.obstacle_list.clear()
@@ -550,8 +601,14 @@ class Level5(arcade.View):
         self.stone_list.clear()
         self.thrown_stone_list.clear()
         self.boss_sprite.health = 100
+        self.boss_sprite.reset_anim()
+        self.boss_sprite.alpha = 255
         self.stone_inventory = 0
         self.player_list.visible = True
+        self.boss_defeated = False
+        self.door_intro_started = False
+        self.boss_fade_started = False
+        self.player_anim_stopped = False
 
     
     def game_over(self):
@@ -563,6 +620,31 @@ class Level5(arcade.View):
         self.jump_pressed = False
         self.door.start_moving_down()
         self.shake_camera()
+    
+    def start_boss_defeat_sequence(self):
+        """Stop spawns, slow camera, and bring in the exit door."""
+        self.boss_defeated = True
+        if not self.door_intro_started:
+            self.door_intro_started = True
+            target_x = self.player_sprite.center_x + 500
+            target_y = 105
+            move_distance = 260
+            self.door.pos_x = target_x + move_distance
+            self.door.pos_y = target_y
+            self.door.opacity = 0
+            self.door.start_moving_left(move_speed=2.5, move_distance=move_distance)
+    
+    def handle_boss_fade_and_idle(self):
+        """Freeze player animation and fade boss once scrolling stops."""
+        if self.scroll_speed > 0:
+            return
+        if not self.player_anim_stopped:
+            self.player_anim_stopped = True
+            self.clear_anim(0, 384)
+        if not self.boss_fade_started:
+            self.boss_fade_started = True
+        if self.boss_sprite.alpha > 0:
+            self.boss_sprite.alpha = max(0, self.boss_sprite.alpha - 5)
 
 
     def shake_camera(self):
@@ -664,18 +746,19 @@ class Level5(arcade.View):
         bar_height = 12
         bar_x = self.boss_sprite.center_x
         bar_y = self.boss_sprite.center_y + 140
+        alpha = self.boss_sprite.alpha
         
         # Draw background (red)
-        arcade.draw_rectangle_filled(bar_x, bar_y, bar_width, bar_height, (200, 0, 0))
+        arcade.draw_rectangle_filled(bar_x, bar_y, bar_width, bar_height, (200, 0, 0, alpha))
         
         # Draw health (green)
         health_ratio = self.boss_sprite.health / self.boss_sprite.max_health
         health_width = bar_width * health_ratio
         if health_width > 0:
-            arcade.draw_rectangle_filled(bar_x - (bar_width - health_width) / 2, bar_y, health_width, bar_height, (0, 200, 0))
+            arcade.draw_rectangle_filled(bar_x - (bar_width - health_width) / 2, bar_y, health_width, bar_height, (0, 200, 0, alpha))
         
         # Draw border
-        arcade.draw_rectangle_outline(bar_x, bar_y, bar_width, bar_height, (0, 0, 0), 2)
+        arcade.draw_rectangle_outline(bar_x, bar_y, bar_width, bar_height, (0, 0, 0, alpha), 2)
     
     def draw_trajectory_arrow(self):
         """Draw trajectory arrow when player has stones"""
@@ -715,6 +798,34 @@ class Level5(arcade.View):
                 arrowhead_x2 = arrow_end_x - arrowhead_size * math.cos(angle + 0.5)
                 arrowhead_y2 = arrow_end_y - arrowhead_size * math.sin(angle + 0.5)
                 arcade.draw_triangle_filled(arrow_end_x, arrow_end_y, arrowhead_x1, arrowhead_y1, arrowhead_x2, arrowhead_y2, COLOR)
+
+    def draw_stone_ui(self):
+        """Draw stone count in the bottom-right corner."""
+        if not self.stone_icon_texture:
+            return
+
+        padding = 40
+        icon_scale = 0.25
+        icon_width = self.stone_icon_texture.width * icon_scale
+        icon_height = self.stone_icon_texture.height * icon_scale
+        icon_center_x = padding + (icon_width / 2)
+        icon_center_y = padding + (icon_height / 2)
+
+        arcade.draw_texture_rectangle(
+            icon_center_x,
+            icon_center_y,
+            icon_width,
+            icon_height,
+            self.stone_icon_texture,
+        )
+        arcade.draw_text(
+            f"x {self.stone_inventory}",
+            icon_center_x + (icon_width / 2) + 8,
+            icon_center_y - 12,
+            color=(0, 0, 0),
+            font_size=22,
+            anchor_x="left",
+        )
     
     def spawn_stone(self):
         """Spawn a stone at random position"""
