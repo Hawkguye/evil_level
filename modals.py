@@ -1,4 +1,5 @@
 import arcade
+import arcade.gui
 import math
 
 
@@ -411,3 +412,149 @@ class Missile():
         
         # Update rotation to match velocity direction
         self._update_rotation()
+
+
+class EndScreen(arcade.View):
+    """Simple end screen with stats and navigation buttons."""
+    def __init__(self, window, title, elapsed_seconds, attempts, replay_view_class, next_view_class):
+        super().__init__(window)
+        self.title = title
+        self.elapsed_seconds = max(0.0, elapsed_seconds)
+        self.attempts = max(1, attempts)
+        self.replay_view_class = replay_view_class
+        self.next_view_class = next_view_class
+        self.manager = arcade.gui.UIManager()
+        self.v_box = arcade.gui.UIBoxLayout()
+        self._build_ui()
+
+    def _build_ui(self):
+        main_menu_button = arcade.gui.UIFlatButton(text="Main Menu", width=220)
+        replay_button = arcade.gui.UIFlatButton(text="Replay", width=220)
+        next_button = arcade.gui.UIFlatButton(text="Next Level", width=220)
+
+        main_menu_button.on_click = self.on_main_menu
+        replay_button.on_click = self.on_replay
+        next_button.on_click = self.on_next
+
+        self.v_box.add(main_menu_button.with_space_around(bottom=12))
+        self.v_box.add(replay_button.with_space_around(bottom=12))
+        self.v_box.add(next_button.with_space_around(bottom=12))
+
+        self.manager.add(
+            arcade.gui.UIAnchorWidget(
+                anchor_x="center_x",
+                anchor_y="center_y",
+                align_y=-100,
+                child=self.v_box,
+            )
+        )
+
+    def on_show_view(self):
+        arcade.set_background_color((20, 20, 20))
+        self.manager.enable()
+
+    def on_hide_view(self):
+        self.manager.disable()
+
+    def on_draw(self):
+        arcade.start_render()
+        self.manager.draw()
+
+        center_x = self.window.width // 2
+        arcade.draw_text(self.title, center_x, 470, (255, 255, 255), 32, anchor_x="center")
+        arcade.draw_text(
+            f"Time: {self._format_elapsed(self.elapsed_seconds)}",
+            center_x,
+            400,
+            (220, 220, 220),
+            20,
+            anchor_x="center",
+        )
+        arcade.draw_text(
+            f"Attempts: {self.attempts}",
+            center_x,
+            370,
+            (220, 220, 220),
+            20,
+            anchor_x="center",
+        )
+
+    def _format_elapsed(self, seconds):
+        total_seconds = int(round(seconds))
+        minutes = total_seconds // 60
+        secs = total_seconds % 60
+        if minutes > 0:
+            return f"{minutes}m {secs:02d}s"
+        return f"{secs}s"
+
+    def on_main_menu(self, event):
+        self.window.show_view(self.window.menu_view)
+
+    def on_replay(self, event):
+        if self.replay_view_class is None:
+            self.window.show_view(self.window.menu_view)
+            return
+        self.window.show_view(self.replay_view_class(self.window))
+
+    def on_next(self, event):
+        if self.next_view_class is None:
+            self.window.show_view(self.window.menu_view)
+            return
+        self.window.show_view(self.next_view_class(self.window))
+
+
+class PauseMenu(arcade.View):
+    """Pause menu overlay with resume, restart, and menu actions."""
+    def __init__(self, window, resume_view, restart_view_class):
+        super().__init__(window)
+        self.resume_view = resume_view
+        self.restart_view_class = restart_view_class
+        self.manager = arcade.gui.UIManager()
+        self.v_box = arcade.gui.UIBoxLayout()
+        self._build_ui()
+
+    def _build_ui(self):
+        resume_button = arcade.gui.UIFlatButton(text="Back to Game", width=220)
+        restart_button = arcade.gui.UIFlatButton(text="Restart", width=220)
+        menu_button = arcade.gui.UIFlatButton(text="Main Menu", width=220)
+
+        resume_button.on_click = self.on_resume
+        restart_button.on_click = self.on_restart
+        menu_button.on_click = self.on_menu
+
+        self.v_box.add(resume_button.with_space_around(bottom=12))
+        self.v_box.add(restart_button.with_space_around(bottom=12))
+        self.v_box.add(menu_button.with_space_around(bottom=12))
+
+        self.manager.add(
+            arcade.gui.UIAnchorWidget(
+                anchor_x="center_x",
+                anchor_y="center_y",
+                child=self.v_box,
+            )
+        )
+
+    def on_show_view(self):
+        arcade.set_background_color((20, 20, 20))
+        self.manager.enable()
+
+    def on_hide_view(self):
+        self.manager.disable()
+
+    def on_draw(self):
+        arcade.start_render()
+        self.manager.draw()
+        center_x = self.window.width // 2
+        arcade.draw_text("Paused", center_x, 470, (255, 255, 255), 32, anchor_x="center")
+
+    def on_resume(self, event):
+        self.window.show_view(self.resume_view)
+
+    def on_restart(self, event):
+        if self.restart_view_class is None:
+            self.window.show_view(self.window.menu_view)
+            return
+        self.window.show_view(self.restart_view_class(self.window))
+
+    def on_menu(self, event):
+        self.window.show_view(self.window.menu_view)

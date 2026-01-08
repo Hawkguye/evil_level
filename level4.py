@@ -5,7 +5,7 @@ import math
 import time
 from pyglet.math import Vec2
 
-from modals import MovingWall, Door, FireBall, Missile, Button
+from modals import MovingWall, Door, FireBall, Missile, Button, EndScreen
 
 
 SCREEN_WIDTH = 1000
@@ -114,6 +114,7 @@ class Level4(arcade.View):
         # self.set_mouse_visible(False)
 
         self.game_on = False
+        self.paused = False
 
         # sprite lists
         self.player_list = None
@@ -138,6 +139,7 @@ class Level4(arcade.View):
         # player info
         self.death = 0
         self.player_sprite = None
+        self.level_start_time = 0.0
 
         # simple physics engine
         self.jetpack_fuel = 100
@@ -241,6 +243,7 @@ class Level4(arcade.View):
         
         self.game_on = True
         print("level 4 started")
+        self.level_start_time = time.time()
 
 
     def on_draw(self):
@@ -284,6 +287,18 @@ class Level4(arcade.View):
         arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 550, font_size=16)
         arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
+        if self.paused:
+            self.draw_pause_overlay()
+
+    def draw_pause_overlay(self):
+        """Draw pause overlay and controls."""
+        w = self.window.width
+        h = self.window.height
+        arcade.draw_rectangle_filled(w / 2, h / 2, w, h, (0, 0, 0, 180))
+        arcade.draw_text("Paused", w / 2, h / 2 + 80, (255, 255, 255), 32, anchor_x="center")
+        arcade.draw_text("ESC: Back to Game", w / 2, h / 2 + 20, (230, 230, 230), 18, anchor_x="center")
+        arcade.draw_text("R: Restart", w / 2, h / 2 - 10, (230, 230, 230), 18, anchor_x="center")
+        arcade.draw_text("Q: Main Menu", w / 2, h / 2 - 40, (230, 230, 230), 18, anchor_x="center")
         
     
     def on_key_press(self, key, modifiers):
@@ -291,7 +306,16 @@ class Level4(arcade.View):
         Called whenever a key is pressed.
         """
         if key == arcade.key.ESCAPE:
-            self.window.show_view(self.window.menu_view)
+            self.paused = not self.paused
+            return
+        if self.paused:
+            if key == arcade.key.R:
+                self.paused = False
+                self.window.show_view(self.__class__(self.window))
+            elif key == arcade.key.Q:
+                self.paused = False
+                self.window.show_view(self.window.menu_view)
+            return
         if not self.game_on:
             return
         if key == arcade.key.UP or key == arcade.key.SPACE or key == arcade.key.W:
@@ -321,6 +345,8 @@ class Level4(arcade.View):
 
     def update(self, delta_time):
         """ Movement and game logic """
+        if self.paused:
+            return
         self.time += delta_time
         self.frame_cnt += 1
 
@@ -625,8 +651,11 @@ class Level4(arcade.View):
     def level_complete(self):
         self.door.move_over = False
         self.shake_camera()
-        print("level complete")
-        # self.window.show_view(self.window.menu_view)
+        elapsed = time.time() - self.level_start_time
+        attempts = self.death + 1
+        from level5 import Level5
+        end_view = EndScreen(self.window, "Level 4 Complete", elapsed, attempts, self.__class__, Level5)
+        self.window.show_view(end_view)
 
 
     def draw_fuel_bar(self):
