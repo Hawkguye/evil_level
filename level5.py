@@ -147,8 +147,10 @@ class Level5(arcade.View):
         self.door_intro_started = False
         self.boss_fade_started = False
         self.player_anim_stopped = False
-        self.boss_fade_started = False
-        self.player_anim_stopped = False
+        self.fade_active = False
+        self.fade_alpha = 0
+        self.post_boss_cleared = False
+        self.fade_speed = 2
         self.level_start_time = 0.0
 
         # simple physics engine
@@ -230,6 +232,10 @@ class Level5(arcade.View):
         self.stone_inventory = 0
         self.boss_defeated = False
         self.door_intro_started = False
+        self.boss_fade_started = False
+        self.player_anim_stopped = False
+        self.fade_active = False
+        self.fade_alpha = 0
 
         # set up the map from Tiled
         map_name = "data/maps/level5.json"
@@ -260,9 +266,6 @@ class Level5(arcade.View):
         self.camera_sprites.use()
 
         self.background.draw()
-        # Draw door if it's active or moving in
-        if self.door.can_be_touched or self.door.is_moving:
-            self.door.draw()
         self.obstacle_list.draw()
         # self.obstacle_list.draw_hit_boxes()
         self.ground_spike_list.draw()
@@ -302,6 +305,14 @@ class Level5(arcade.View):
         self.draw_stone_ui()
         if self.paused:
             self.draw_pause_overlay()
+        if self.fade_active:
+            arcade.draw_rectangle_filled(
+                SCREEN_WIDTH / 2,
+                SCREEN_HEIGHT / 2,
+                SCREEN_WIDTH,
+                SCREEN_HEIGHT,
+                (0, 0, 0, self.fade_alpha),
+            )
 
     def draw_pause_overlay(self):
         """Draw pause overlay and controls."""
@@ -381,15 +392,9 @@ class Level5(arcade.View):
             # While the burst is active, do not advance game logic
             return
         
-        if not self.game_on:
-            self.player_sprite.center_x = self.door.pos_x
-            self.player_sprite.center_y = self.door.pos_y
-            self.left_pressed = False
-            self.right_pressed = False
-            self.jump_pressed = False
-            self.jetpack_particle_run = False
-            if self.door.move_over:
-                self.level_complete()
+        if self.fade_active:
+            self.update_end_fade()
+            return
         
         # Camera scrolling (slow down after boss defeat)
         if self.boss_defeated and self.scroll_speed > 0:
@@ -406,6 +411,8 @@ class Level5(arcade.View):
                 self.player_sprite.center_x += move_amount
         if self.boss_defeated:
             self.handle_boss_fade_and_idle()
+            if self.scroll_speed <= 0 and not self.fade_active:
+                self.fade_active = True
         
         # Update obstacles
         for obstacle in self.obstacle_list:
@@ -478,7 +485,6 @@ class Level5(arcade.View):
                 self.start_boss_defeat_sequence()
         
         # Call update on all sprites
-        self.door.update()
         self.boss_list.update()
         if not self.boss_fade_started:
             self.boss_list.update_animation()
@@ -558,12 +564,7 @@ class Level5(arcade.View):
         if ground_spike_hit_list:
             self.reset()
         
-        # check if touched the door
-        collided_w_door = self.door.check_collision(self.player_sprite.left, self.player_sprite.right, self.player_sprite.bottom)
-        if collided_w_door:
-            print(collided_w_door)
-            self.game_on = False
-            self.game_over()
+        # door removed for level completion
         
         # Scroll the screen to the player
         self.scroll_to_player()
@@ -635,6 +636,9 @@ class Level5(arcade.View):
         self.door_intro_started = False
         self.boss_fade_started = False
         self.player_anim_stopped = False
+        self.fade_active = False
+        self.fade_alpha = 0
+        self.post_boss_cleared = False
 
     
     def game_over(self):
@@ -648,17 +652,8 @@ class Level5(arcade.View):
         self.shake_camera()
     
     def start_boss_defeat_sequence(self):
-        """Stop spawns, slow camera, and bring in the exit door."""
+        """Stop spawns and slow camera before fading to the end screen."""
         self.boss_defeated = True
-        if not self.door_intro_started:
-            self.door_intro_started = True
-            target_x = self.player_sprite.center_x + 500
-            target_y = 105
-            move_distance = 260
-            self.door.pos_x = target_x + move_distance
-            self.door.pos_y = target_y
-            self.door.opacity = 0
-            self.door.start_moving_left(move_speed=2.5, move_distance=move_distance)
     
     def handle_boss_fade_and_idle(self):
         """Freeze player animation and fade boss once scrolling stops."""
@@ -669,8 +664,19 @@ class Level5(arcade.View):
             self.clear_anim(0, 384)
         if not self.boss_fade_started:
             self.boss_fade_started = True
-        if self.boss_sprite.alpha > 0:
-            self.boss_sprite.alpha = max(0, self.boss_sprite.alpha - 5)
+        if not self.post_boss_cleared:
+            self.obstacle_list.clear()
+            self.ground_spike_list.clear()
+            self.stone_list.clear()
+            self.thrown_stone_list.clear()
+            self.boss_sprite.alpha = 0
+            self.post_boss_cleared = True
+    
+    def update_end_fade(self):
+        """Fade to black, then show end screen."""
+        self.fade_alpha = min(255, self.fade_alpha + self.fade_speed)
+        if self.fade_alpha >= 255:
+            self.level_complete()
 
 
     def shake_camera(self):
@@ -721,7 +727,6 @@ class Level5(arcade.View):
             self.player_sprite.frames.append(anim)
     
     def level_complete(self):
-        self.door.move_over = False
         self.shake_camera()
         elapsed = time.time() - self.level_start_time
         attempts = self.death + 1
