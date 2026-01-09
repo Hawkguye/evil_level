@@ -5,7 +5,7 @@ import math
 import time
 from pyglet.math import Vec2
 
-from modals import MovingWall, Door, FireBall, Missile, Button, EndScreen
+from modals import EndScreen
 
 
 SCREEN_WIDTH = 1000
@@ -57,14 +57,14 @@ class BOSS(arcade.AnimatedTimeBasedSprite):
         self.scale = scale
         self.center_x = center_x
         self.center_y = center_y
-        self.max_health = 100
-        self.health = 100
+        self.max_health = 90
+        self.health = 90
         self.is_hurt = False
         self.hurt_end_time = 0.0
     
     def hurt(self, current_time: float):
         """Apply damage and swap to hurt textures"""
-        self.health -= 10
+        self.health -= 15
         if self.health <= 0:
             self.health = 0
             print("BOSS defeated")
@@ -104,7 +104,6 @@ class Level5(arcade.View):
         self.platform_list = None
         self.background = None
         self.spike_list = None
-        self.door = None
         self.vis_sprites_list = None
         self.moving_wall_list = None
         self.boss_list = None
@@ -144,7 +143,6 @@ class Level5(arcade.View):
         self.player_sprite = None
         self.boss_sprite = None
         self.boss_defeated = False
-        self.door_intro_started = False
         self.boss_fade_started = False
         self.player_anim_stopped = False
         self.fade_active = False
@@ -231,7 +229,6 @@ class Level5(arcade.View):
         self.stone_spawn_timer = 0.0
         self.stone_inventory = 0
         self.boss_defeated = False
-        self.door_intro_started = False
         self.boss_fade_started = False
         self.player_anim_stopped = False
         self.fade_active = False
@@ -242,7 +239,6 @@ class Level5(arcade.View):
         self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING, hit_box_algorithm="Detailed")
 
         # sprite_list is from Tiled map layers
-        self.door = Door(1470, 276)
         self.background = self.tile_map.sprite_lists["background"]
         self.platform_list = self.tile_map.sprite_lists["platforms"]
 
@@ -564,8 +560,6 @@ class Level5(arcade.View):
         if ground_spike_hit_list:
             self.reset()
         
-        # door removed for level completion
-        
         # Scroll the screen to the player
         self.scroll_to_player()
 
@@ -613,7 +607,6 @@ class Level5(arcade.View):
         self.death += 1
 
         # reset moving parts
-        self.door.reset()
         self.jetpack_fuel = 100
         self.player_sprite.center_x = START_POS[0]
         self.player_sprite.center_y = START_POS[1]
@@ -633,7 +626,6 @@ class Level5(arcade.View):
         self.stone_inventory = 0
         self.player_list.visible = True
         self.boss_defeated = False
-        self.door_intro_started = False
         self.boss_fade_started = False
         self.player_anim_stopped = False
         self.fade_active = False
@@ -642,13 +634,10 @@ class Level5(arcade.View):
 
     
     def game_over(self):
-        """ game over animation, door and player moves down """
-        self.player_sprite.center_x = self.door.pos_x
-        self.player_sprite.center_y = self.door.pos_y
+        """ game over animation"""
         self.left_pressed = False
         self.right_pressed = False
         self.jump_pressed = False
-        self.door.start_moving_down()
         self.shake_camera()
     
     def start_boss_defeat_sequence(self):
