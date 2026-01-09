@@ -317,19 +317,19 @@ class FireBall():
 
 
 class Missile():
-    def __init__(self, pos_x: int, pos_y: int, player_sprite: arcade.AnimatedTimeBasedSprite):
+    def __init__(self, pos_x: int, pos_y: int, player_sprite: arcade.AnimatedTimeBasedSprite, direction = "right"):
         """ a missile class initializer"""
         self.sprite = arcade.Sprite("data/sprites/missile.png", 2)
         self.pos_x = pos_x
         self.pos_y = pos_y
         self.player_sprite = player_sprite
         self.speed = 3.0  # constant speed magnitude
-        self.turn_rate = 0.3  # steering acceleration factor (how quickly it can turn)
+        self.turn_rate = 0.15  # steering acceleration factor (how quickly it can turn)
         self.sprite.center_x = pos_x
         self.sprite.center_y = pos_y
         
         # Initialize velocity pointing right (positive x direction)
-        self.v_x = self.speed
+        self.v_x = self.speed if direction == "right" else -self.speed
         self.v_y = 0
         
         # Update sprite rotation to match initial velocity

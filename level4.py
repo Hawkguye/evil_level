@@ -31,13 +31,14 @@ SPRITE_PATH = "data/sprites/sprite_jetpack.png"
 class Cannon:
     """Cannon class that spawns missiles periodically"""
     
-    def __init__(self, pos_x: int, pos_y: int, player_sprite):
+    def __init__(self, pos_x: int, pos_y: int, player_sprite, flipped = False):
         """Initialize cannon at given position"""
         self.sprite = arcade.Sprite()
         self.sprite.scale = 0.5
         self.sprite.center_x = pos_x
         self.sprite.center_y = pos_y
-        self.sprite.flipped_horizontally = True
+        self.flipped = flipped
+        self.sprite.flipped_horizontally = self.flipped
         self.player_sprite = player_sprite
         self.missile_list = []
         self.last_spawn_time = 0.0
@@ -46,12 +47,12 @@ class Cannon:
         self.firing_start_time = None
         
         # Load animation textures
-        self.idle_texture = arcade.load_texture("data/sprites/cannon.png", flipped_horizontally=True)
+        self.idle_texture = arcade.load_texture("data/sprites/cannon.png", flipped_horizontally=self.flipped)
         self.firing_textures = [
-            arcade.load_texture("data/sprites/cannon2.png", flipped_horizontally=True),
-            arcade.load_texture("data/sprites/cannon3.png", flipped_horizontally=True),
-            arcade.load_texture("data/sprites/cannon4.png", flipped_horizontally=True),
-            arcade.load_texture("data/sprites/cannon5.png", flipped_horizontally=True),
+            arcade.load_texture("data/sprites/cannon2.png", flipped_horizontally=self.flipped),
+            arcade.load_texture("data/sprites/cannon3.png", flipped_horizontally=self.flipped),
+            arcade.load_texture("data/sprites/cannon4.png", flipped_horizontally=self.flipped),
+            arcade.load_texture("data/sprites/cannon5.png", flipped_horizontally=self.flipped),
         ]
         
         # Set initial texture to idle
@@ -73,11 +74,12 @@ class Cannon:
         """Update cannon and missiles, spawn new missile if interval elapsed"""
         # Spawn new missile if enough time has passed
         if current_time - self.last_spawn_time >= self.spawn_interval:
-            missile = Missile(self.sprite.center_x + 30, self.sprite.center_y - 10, self.player_sprite)
-            self.missile_list.append(missile)
+            if (self.flipped and self.player_sprite.center_x < 735) or (not self.flipped and self.player_sprite.center_x > 735):
+                missile = Missile(self.sprite.center_x + 30 if self.flipped else self.sprite.center_x - 30, self.sprite.center_y - 10, self.player_sprite, "right" if self.flipped else "left")
+                self.missile_list.append(missile)
+                self.start_firing_animation(current_time)
             self.last_spawn_time = current_time
             # Start firing animation
-            self.start_firing_animation(current_time)
         
         # Update firing animation
         if self.firing_start_time is not None:
@@ -134,6 +136,7 @@ class Level4(arcade.View):
         self.fireball6 = None
         self.fireball_list = None
         self.cannon = None
+        self.cannon2 = None
         self.button_list = None
         
         # player info
@@ -227,7 +230,8 @@ class Level4(arcade.View):
         self.fireball6 = FireBall(1400, 520, 265)
         self.fireball_list = [self.fireball1, self.fireball2, self.fireball3, self.fireball4, self.fireball5, self.fireball6]
 
-        self.cannon = Cannon(170, 445, self.player_sprite) # another one at (1550, 445)
+        self.cannon = Cannon(170, 445, self.player_sprite, True)
+        self.cannon2 = Cannon(1550, 480, self.player_sprite, False) # another one at (1550, 445)
 
         self.vis_sprites_list = [self.platform_list]
 
@@ -258,6 +262,7 @@ class Level4(arcade.View):
             self.door.draw()
         self.player_list.draw()
         self.cannon.draw()
+        self.cannon2.draw()
         # Draw buttons
         for button in self.button_list:
             button.draw()
@@ -379,6 +384,7 @@ class Level4(arcade.View):
             for fireball in self.fireball_list:
                 fireball.update(GRAVITY)
             self.cannon.update(self.time)
+            self.cannon2.update(self.time)
         
         # Calculate speed based on the keys pressed, if in air, does not stop immedietly
         self.player_sprite.change_x *= 0.97
@@ -486,7 +492,21 @@ class Level4(arcade.View):
                 self.trigger_particle_explosion(missile.pos_x, missile.pos_y)
                 # Remove the missile
                 self.cannon.missile_list.remove(missile)
-        
+
+        for missile in self.cannon2.missile_list[:]:  # Use slice to safely iterate while modifying
+            # Check collision with player
+            collided_w_player = arcade.check_for_collision(self.player_sprite, missile.sprite)
+            if collided_w_player:
+                self.reset()
+                break  # Reset will handle clearing missiles, so break to avoid processing more
+            
+            # Check collision with platforms
+            collided_w_platform = arcade.check_for_collision_with_list(missile.sprite, self.platform_list)
+            if collided_w_platform:
+                # Trigger particle explosion at missile location
+                self.trigger_particle_explosion(missile.pos_x, missile.pos_y)
+                # Remove the missile
+                self.cannon2.missile_list.remove(missile)
         # Scroll the screen to the player
         self.scroll_to_player()
 
@@ -541,6 +561,7 @@ class Level4(arcade.View):
         for fireball in self.fireball_list:
             fireball.reset()
         self.cannon.reset(self.time)
+        self.cannon2.reset(self.time)
         # Reset buttons
         for button in self.button_list:
             button.reset()
