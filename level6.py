@@ -14,10 +14,23 @@ SCREEN_HEIGHT = 600
 # constants
 SPRITE_SCALING_PLAYER = 0.25
 TILE_SCALING = 0.25
-MOVE_SPEED = 2
-JUMP_SPEED = 3
-JETPACK_SPEED = 0.4
-GRAVITY = 0.2
+GRAVITY = 1000
+PLAYER_MOVE_FORCE_ON_GROUND = 8000
+PLAYER_MOVE_FORCE_IN_AIR = 900
+PLAYER_JUMP_IMPULSE = 1800
+PLAYER_MAX_HORIZONTAL_SPEED = 450
+PLAYER_MAX_VERTICAL_SPEED = 1600
+PLAYER_DAMPING = 0.9
+
+JETPACK_FORCE = 3500
+JETPACK_FUEL_MAX = 100
+JETPACK_FUEL_REGEN = 2
+JETPACK_FUEL_BURN = 0.5
+
+FIREBALL_MIN_SPEED = 100
+FIREBALL_MAX_SPEED = 350
+FIREBALL_FRICTION = 0.0
+FIREBALL_ELASTICITY = 1.0
 
 VIEWPORT_MARGIN = 200
 CAMERA_SPEED = 0.5
@@ -145,14 +158,16 @@ class Level6(arcade.View):
         self.level_start_time = 0.0
 
         # simple physics engine
-        self.jetpack_fuel = 100
+        self.jetpack_fuel = JETPACK_FUEL_MAX
         self.jump_pressed = False
         self.left_pressed = False
         self.right_pressed = False
+        self.jump_needs_reset = True
         self.physics_engine = None
         self.tile_map = None
         # coyote time
         self.frames_since_land = 0
+        self.player_velocity = Vec2(0, 0)
         
         # CAMERAS
         self.camera_sprites = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -240,10 +255,7 @@ class Level6(arcade.View):
         #     arcade.set_background_color(self.tile_map.background_color)
 
         # setup physics engine
-        self.physics_engine = arcade.PhysicsEnginePlatformer(
-            self.player_sprite, 
-            self.vis_sprites_list, 
-            GRAVITY)
+        self.setup_physics()
         
         self.game_on = True
         print("level 6 started")
@@ -288,7 +300,7 @@ class Level6(arcade.View):
 
         # draw the gui
         self.camera_gui.use()
-        arcade.draw_text(f"jetpack fuel: {self.jetpack_fuel}; jump vel: {round(self.player_sprite.change_y)}", 50, 450, font_size=16, color=(0, 0, 0))
+        arcade.draw_text(f"jetpack fuel: {self.jetpack_fuel}; jump vel: {round(self.player_velocity.y, 1)}", 50, 450, font_size=16, color=(0, 0, 0))
         arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 550, font_size=16)
         arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
@@ -377,61 +389,17 @@ class Level6(arcade.View):
         
         # Call update on all sprites
         self.door.update()
-        self.player_list.update()
         self.player_list.update_animation()
         if self.game_on:
-            self.physics_engine.update()
-            for fireball in self.fireball_list:
-                fireball.update(GRAVITY)
+            is_on_ground = self.physics_engine.is_on_ground(self.player_sprite)
+            self.update_player_physics(delta_time, is_on_ground)
             self.cannon.update(self.time)
             self.cannon2.update(self.time)
-        
-        # Calculate speed based on the keys pressed, if in air, does not stop immedietly
-        self.player_sprite.change_x *= 0.97
-        # self.player_sprite.change_x = 0
 
-        if self.physics_engine.can_jump():
-            self.player_sprite.change_x = 0
-            if self.jetpack_fuel < 100:
-                self.jetpack_fuel += 2
-            if self.jump_pressed:
-                self.player_sprite.change_y = JUMP_SPEED
-            # Disable jetpack particles when on ground
-            self.jetpack_particle_run = False
-        else:
-            if self.jump_pressed and self.jetpack_fuel > 0:
-                if self.player_sprite.change_y < 0:
-                    self.player_sprite.change_y = 0
-                self.player_sprite.change_y += JETPACK_SPEED
-                self.jetpack_fuel -= 1
-                # Enable jetpack particles
-                if not self.jetpack_particle_run:
-                    self.jetpack_particle_run = True
-                    self.jetpack_time_offset = self.time
-                # Update particle position (below player sprite) continuously
-                screen_x = self.player_sprite.center_x - self.view_left
-                screen_y = self.player_sprite.center_y - self.view_bottom - 10  # Offset below player
-                try:
-                    self.jetpack_shadertoy.program['pos'] = (screen_x, screen_y)
-                    self.jetpack_shadertoy.program['timeOffset'] = self.jetpack_time_offset
-                    self.jetpack_shadertoy.program['direction'] = self.player_sprite.change_x * -0.3
-                except Exception:
-                    pass
-            else:
-                # Disable jetpack particles when not active
-                self.jetpack_particle_run = False
-        if self.player_sprite.change_y > 3:
-            self.player_sprite.change_y = 3
-
-        if self.left_pressed and not self.right_pressed:
-            self.player_sprite.change_x = -MOVE_SPEED
-        elif self.right_pressed and not self.left_pressed:
-            self.player_sprite.change_x = MOVE_SPEED
-
-        if self.player_sprite.change_x > 0.02:
+        if self.player_velocity.x > 5:
             # moving right
             self.set_anim(384)
-        elif self.player_sprite.change_x < -0.02:
+        elif self.player_velocity.x < -5:
             # moving left
             self.set_anim(256)
         else:
@@ -541,8 +509,8 @@ class Level6(arcade.View):
         self.left_pressed = False
         self.right_pressed = False
         self.jump_pressed = False
-        self.player_sprite.change_x = 0
-        self.player_sprite.change_y = 0
+        self.physics_engine.set_velocity(self.player_sprite, (0, 0))
+        self.player_velocity = Vec2(0, 0)
         self.player_list.visible = False
         arcade.print_timings()
 
@@ -557,9 +525,8 @@ class Level6(arcade.View):
         self.door.reset()
         self.door.can_be_touched = False
         self.door.opacity = 0  # Hide door again
-        self.jetpack_fuel = 100
-        for fireball in self.fireball_list:
-            fireball.reset()
+        self.jetpack_fuel = JETPACK_FUEL_MAX
+        self.reset_fireballs()
         self.cannon.reset(self.time)
         self.cannon2.reset(self.time)
         # Reset buttons
@@ -569,6 +536,10 @@ class Level6(arcade.View):
         self.buttons_pressed_count = 0
         self.player_sprite.center_x = START_POS[0]
         self.player_sprite.center_y = START_POS[1]
+        self.physics_engine.set_position(self.player_sprite, START_POS)
+        self.physics_engine.set_velocity(self.player_sprite, (0, 0))
+        self.player_velocity = Vec2(0, 0)
+        self.jump_needs_reset = True
         self.player_list.visible = True
 
     
@@ -687,6 +658,111 @@ class Level6(arcade.View):
         y = int(self.player_sprite.center_y)
         arcade.draw_xywh_rectangle_filled(x-3, y-25, 6, self.jetpack_fuel / 2, (255, 98, 0))
         arcade.draw_rectangle_outline(x, y, 6, 50, (0, 0, 0))
+
+    def setup_physics(self):
+        gravity = (0, -GRAVITY)
+        self.physics_engine = arcade.PymunkPhysicsEngine(gravity=gravity, damping=1.0)
+
+        self.physics_engine.add_sprite_list(
+            self.platform_list,
+            body_type=arcade.PymunkPhysicsEngine.STATIC,
+            friction=1.0,
+            elasticity=FIREBALL_ELASTICITY,
+        )
+
+        self.physics_engine.add_sprite(
+            self.player_sprite,
+            mass=1,
+            friction=1.0,
+            elasticity=0.0,
+            moment_of_inertia=arcade.PymunkPhysicsEngine.MOMENT_INF,
+            damping=PLAYER_DAMPING,
+            max_horizontal_velocity=PLAYER_MAX_HORIZONTAL_SPEED,
+            max_vertical_velocity=PLAYER_MAX_VERTICAL_SPEED,
+            collision_type="player",
+        )
+
+        for fireball in self.fireball_list:
+            self.physics_engine.add_sprite(
+                fireball.sprite,
+                mass=0.5,
+                friction=FIREBALL_FRICTION,
+                elasticity=FIREBALL_ELASTICITY,
+                moment_of_inertia=arcade.PymunkPhysicsEngine.MOMENT_INF,
+                damping=1.0,
+                collision_type="fireball",
+            )
+
+        self.reset_fireballs()
+
+    def reset_fireballs(self):
+        for fireball in self.fireball_list:
+            fireball.sprite.center_x = fireball.init_x
+            fireball.sprite.center_y = fireball.init_y
+            self.physics_engine.set_position(fireball.sprite, (fireball.init_x, fireball.init_y))
+            self.physics_engine.set_velocity(fireball.sprite, (0, 0))
+            self.launch_fireball(fireball)
+
+    def launch_fireball(self, fireball):
+        angle = random.uniform(0, math.tau)
+        speed = random.uniform(FIREBALL_MIN_SPEED, FIREBALL_MAX_SPEED)
+        velocity = (math.cos(angle) * speed, math.sin(angle) * speed)
+        self.physics_engine.set_velocity(fireball.sprite, velocity)
+
+    def update_player_physics(self, delta_time: float, is_on_ground: bool):
+        delta_time = max(delta_time, 1 / 120)
+        moving = False
+
+        if self.left_pressed and not self.right_pressed:
+            move_force = PLAYER_MOVE_FORCE_ON_GROUND if is_on_ground else PLAYER_MOVE_FORCE_IN_AIR
+            impulse = (-move_force * delta_time, 0)
+            self.physics_engine.apply_impulse(self.player_sprite, impulse)
+            self.physics_engine.set_friction(self.player_sprite, 0)
+            moving = True
+        elif self.right_pressed and not self.left_pressed:
+            move_force = PLAYER_MOVE_FORCE_ON_GROUND if is_on_ground else PLAYER_MOVE_FORCE_IN_AIR
+            impulse = (move_force * delta_time, 0)
+            self.physics_engine.apply_impulse(self.player_sprite, impulse)
+            self.physics_engine.set_friction(self.player_sprite, 0)
+            moving = True
+
+        if not moving:
+            self.physics_engine.set_friction(self.player_sprite, 1.0)
+
+        if not self.jump_pressed:
+            self.jump_needs_reset = True
+
+        if is_on_ground:
+            if self.jetpack_fuel < JETPACK_FUEL_MAX:
+                self.jetpack_fuel = min(JETPACK_FUEL_MAX, self.jetpack_fuel + JETPACK_FUEL_REGEN)
+            if self.jump_pressed and self.jump_needs_reset:
+                self.physics_engine.apply_impulse(self.player_sprite, (0, PLAYER_JUMP_IMPULSE))
+                self.jump_needs_reset = False
+            self.jetpack_particle_run = False
+        else:
+            if self.jump_pressed and self.jetpack_fuel > 0:
+                impulse = (0, JETPACK_FORCE * delta_time)
+                self.physics_engine.apply_impulse(self.player_sprite, impulse)
+                self.jetpack_fuel = max(0, self.jetpack_fuel - JETPACK_FUEL_BURN)
+                if not self.jetpack_particle_run:
+                    self.jetpack_particle_run = True
+                    self.jetpack_time_offset = self.time
+            else:
+                self.jetpack_particle_run = False
+
+        self.physics_engine.step(delta_time)
+        physics_object = self.physics_engine.get_physics_object(self.player_sprite)
+        self.player_velocity = physics_object.body.velocity if physics_object.body else Vec2(0, 0)
+
+        if self.jetpack_particle_run:
+            screen_x = self.player_sprite.center_x - self.view_left
+            screen_y = self.player_sprite.center_y - self.view_bottom - 10
+            try:
+                self.jetpack_shadertoy.program['pos'] = (screen_x, screen_y)
+                self.jetpack_shadertoy.program['timeOffset'] = self.jetpack_time_offset
+                self.jetpack_shadertoy.program['direction'] = -self.player_velocity.x * 0.002
+            except Exception:
+                pass
         
 
 def main():
