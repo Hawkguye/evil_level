@@ -61,6 +61,7 @@ class BOSS(arcade.AnimatedTimeBasedSprite):
         self.health = 90
         self.is_hurt = False
         self.hurt_end_time = 0.0
+        self.is_dead = False
     
     def hurt(self, current_time: float):
         """Apply damage and swap to hurt textures"""
@@ -82,10 +83,26 @@ class BOSS(arcade.AnimatedTimeBasedSprite):
         self.frames.clear()
         for i in range(4):
             texture = arcade.load_texture(self.boss_sprite_path, i * 256, 0, 256, 256)
-            anim = arcade.AnimationKeyframe(i, 250, texture)
+            anim = arcade.AnimationKeyframe(i, 150, texture)
             self.frames.append(anim)
         self.is_hurt = False
         self.hurt_end_time = 0.0
+        self.is_dead = False
+    
+    def set_death_anim(self):
+        """Swap to death animation row."""
+        self.frames.clear()
+        for i in range(4):
+            texture = arcade.load_texture(self.boss_sprite_path, i * 256, 512, 256, 256)
+            anim = arcade.AnimationKeyframe(i, 250, texture)
+            self.frames.append(anim)
+        # Reset animation to the first frame
+        self.texture = self.frames[0].texture
+        if hasattr(self, "cur_frame_idx"):
+            self.cur_frame_idx = 0
+        if hasattr(self, "time_since_last_frame"):
+            self.time_since_last_frame = 0.0
+        self.is_dead = True
 
 class Level5(arcade.View):
     """ windows class """
@@ -148,7 +165,12 @@ class Level5(arcade.View):
         self.fade_active = False
         self.fade_alpha = 0
         self.post_boss_cleared = False
+        self.boss_death_active = False
+        self.boss_death_start_time = 0.0
+        self.boss_death_active = False
+        self.boss_death_start_time = 0.0
         self.fade_speed = 2
+        self.boss_death_duration = 1.0
         self.level_start_time = 0.0
 
         # simple physics engine
@@ -276,7 +298,7 @@ class Level5(arcade.View):
         self.stone_list.draw()
         self.thrown_stone_list.draw()
         self.boss_list.draw()
-        if self.game_on:
+        if self.game_on and not self.boss_death_active:
             self.draw_boss_health_bar()
             self.draw_trajectory_arrow()
 
@@ -407,8 +429,6 @@ class Level5(arcade.View):
                 self.player_sprite.center_x += move_amount
         if self.boss_defeated:
             self.handle_boss_fade_and_idle()
-            if self.scroll_speed <= 0 and not self.fade_active:
-                self.fade_active = True
         
         # Update obstacles
         for obstacle in self.obstacle_list:
@@ -475,14 +495,14 @@ class Level5(arcade.View):
                 thrown_stone.remove_from_sprite_lists()
                 self.boss_sprite.hurt(self.time)
             # Reset boss animation after hurt duration
-            if self.boss_sprite.is_hurt and self.time >= self.boss_sprite.hurt_end_time:
+            if self.boss_sprite.is_hurt and self.time >= self.boss_sprite.hurt_end_time and not self.boss_death_active:
                 self.boss_sprite.reset_anim()
             if self.boss_sprite.health <= 0 and not self.boss_defeated:
                 self.start_boss_defeat_sequence()
         
         # Call update on all sprites
         self.boss_list.update()
-        if not self.boss_fade_started:
+        if self.boss_death_active or not self.boss_fade_started:
             self.boss_list.update_animation()
         self.obstacle_list.update()
         self.ground_spike_list.update()
@@ -641,25 +661,29 @@ class Level5(arcade.View):
         self.shake_camera()
     
     def start_boss_defeat_sequence(self):
-        """Stop spawns and slow camera before fading to the end screen."""
+        """Stop spawns, play death animation, then fade to end screen."""
         self.boss_defeated = True
-    
-    def handle_boss_fade_and_idle(self):
-        """Freeze player animation and fade boss once scrolling stops."""
-        if self.scroll_speed > 0:
-            return
-        if not self.player_anim_stopped:
-            self.player_anim_stopped = True
-            self.clear_anim(0, 384)
-        if not self.boss_fade_started:
-            self.boss_fade_started = True
+        self.boss_death_active = True
+        self.boss_death_start_time = self.time
+        self.boss_sprite.set_death_anim()
+        self.boss_sprite.is_hurt = False
+        self.boss_sprite.hurt_end_time = 0.0
         if not self.post_boss_cleared:
             self.obstacle_list.clear()
             self.ground_spike_list.clear()
             self.stone_list.clear()
             self.thrown_stone_list.clear()
-            self.boss_sprite.alpha = 0
             self.post_boss_cleared = True
+    
+    def handle_boss_fade_and_idle(self):
+        """Freeze player animation and advance boss death sequence."""
+        if not self.player_anim_stopped:
+            self.player_anim_stopped = True
+            self.clear_anim(0, 384)
+        if self.boss_death_active and self.time - self.boss_death_start_time >= self.boss_death_duration:
+            self.boss_death_active = False
+            self.boss_fade_started = True
+            self.fade_active = True
     
     def update_end_fade(self):
         """Fade to black, then show end screen."""
