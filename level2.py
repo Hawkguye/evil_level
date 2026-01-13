@@ -197,6 +197,9 @@ class Level2(arcade.View):
         arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 550, font_size=16)
         arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
+        if self.inverted_text_on:
+            arcade.draw_text(f"Something has changed within me.", 500, 100, (73, 0, 138), anchor_x="center", font_size=16)
+            arcade.draw_text(f"Something is not the same.", 500, 70, (73, 0, 138), anchor_x="center", font_size=16)
         if self.paused:
             self.draw_pause_overlay()
 
@@ -209,9 +212,6 @@ class Level2(arcade.View):
         arcade.draw_text("ESC: Back to Game", w / 2, h / 2 + 20, (230, 230, 230), 18, anchor_x="center")
         arcade.draw_text("R: Restart", w / 2, h / 2 - 10, (230, 230, 230), 18, anchor_x="center")
         arcade.draw_text("Q: Main Menu", w / 2, h / 2 - 40, (230, 230, 230), 18, anchor_x="center")
-        if self.inverted_text_on:
-            arcade.draw_text(f"Something has changed within me.", 500, 100, (73, 0, 138), anchor_x="center", font_size=16)
-            arcade.draw_text(f"Something is not the same.", 500, 70, (73, 0, 138), anchor_x="center", font_size=16)
         
     
     def on_key_press(self, key, modifiers):
