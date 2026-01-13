@@ -35,7 +35,7 @@ VIEWPORT_MARGIN = 500
 CAMERA_SPEED = 0.5
 CAMERA_OFFSET_Y = 0
 
-START_POS = (200, 900)
+START_POS = (500, 900)
 
 SPRITE_PATH = "data/sprites/sprite_jetpack.png"
 
@@ -243,8 +243,8 @@ class Level6(arcade.View):
         self.fireball6 = FireBall(1400, 620, 665)
         self.fireball_list = [self.fireball1, self.fireball2, self.fireball3, self.fireball4, self.fireball5, self.fireball6]
 
-        self.cannon = Cannon(170, 445, self.player_sprite, True)
-        self.cannon2 = Cannon(1550, 480, self.player_sprite, False) # another one at (1550, 445)
+        self.cannon = Cannon(170, 608, self.player_sprite, True)
+        self.cannon2 = Cannon(1550, 608, self.player_sprite, False) # another one at (1550, 445)
 
         self.vis_sprites_list = [self.platform_list]
 
