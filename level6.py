@@ -23,7 +23,7 @@ VIEWPORT_MARGIN = 400
 CAMERA_SPEED = 0.5
 CAMERA_OFFSET_Y = 0
 
-START_POS = (200, 900)
+START_POS = (300, 250)
 
 SPRITE_PATH = "data/sprites/sprite_jetpack.png"
 
@@ -268,23 +268,6 @@ class Level6(arcade.View):
         # sprite_list is from Tiled map layers
         self.background = self.tile_map.sprite_lists["background"]
         self.platform_list = self.tile_map.sprite_lists["platforms"]
-        
-        self.button1 = Button(130, 736, False, True)
-        self.button2 = Button(656, 950)
-        self.button3 = Button(1225, 1232, False, True)
-        self.button_list = [self.button1, self.button2, self.button3]
-        self.buttons_pressed_count = 0
-
-        self.fireball1 = FireBall(290, 620, 673)
-        self.fireball2 = FireBall(460, 620, 635)
-        self.fireball3 = FireBall(734, 620, 633)
-        self.fireball4 = FireBall(990, 620, 640)
-        self.fireball5 = FireBall(1168, 620, 610)
-        self.fireball6 = FireBall(1400, 620, 665)
-        self.fireball_list = [self.fireball1, self.fireball2, self.fireball3, self.fireball4, self.fireball5, self.fireball6]
-
-        self.cannon = Cannon(170, 445, self.player_sprite, True)
-        self.cannon2 = Cannon(1550, 480, self.player_sprite, False) # another one at (1550, 445)
 
         self.vis_sprites_list = [self.platform_list]
 
