@@ -320,9 +320,16 @@ class Level6(arcade.View):
 
         # draw the gui
         self.camera_gui.use()
-        # arcade.draw_text(f"jetpack fuel: {self.jetpack_fuel}; jump vel: {round(self.player_sprite.change_y)}", 50, 450, font_size=16, color=(0, 0, 0))
+        elapsed = max(0.0, time.time() - self.level_start_time)
+        elapsed_minutes = int(elapsed) // 60
+        elapsed_seconds = int(elapsed) % 60
+        if elapsed_minutes > 0:
+            elapsed_text = f"Time: {elapsed_minutes}m {elapsed_seconds:02d}s"
+        else:
+            elapsed_text = f"Time: {elapsed_seconds}s"
         arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 550, font_size=16)
+        arcade.draw_text(elapsed_text, 50, 525, font_size=16)
         # arcade.draw_text(f"Stones: {self.stone_inventory}", 50, 400, font_size=16, color=(0, 0, 0))
         # arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
         self.draw_stone_ui()

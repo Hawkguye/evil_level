@@ -197,8 +197,16 @@ class Level2(arcade.View):
 
         # draw the gui
         self.camera_gui.use()
+        elapsed = max(0.0, time.time() - self.level_start_time)
+        elapsed_minutes = int(elapsed) // 60
+        elapsed_seconds = int(elapsed) % 60
+        if elapsed_minutes > 0:
+            elapsed_text = f"Time: {elapsed_minutes}m {elapsed_seconds:02d}s"
+        else:
+            elapsed_text = f"Time: {elapsed_seconds}s"
         arcade.draw_text(f"fps: {round(arcade.get_fps(), 2)}", 50, 500, font_size=16)
         arcade.draw_text(f"Deaths: {self.death}", 50, 550, font_size=16)
+        arcade.draw_text(elapsed_text, 50, 525, font_size=16)
         arcade.draw_text(f"x: {round(self.player_sprite.center_x)}; y: {round(self.player_sprite.center_y)}", 50, 50, font_size=16)
         if self.inverted_text_on:
             arcade.draw_text(f"Something has changed within me.", 500, 100, (73, 0, 138), anchor_x="center", font_size=16)
