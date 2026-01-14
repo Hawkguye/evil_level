@@ -153,6 +153,11 @@ class Level4(arcade.View):
         self.tile_map = None
         # coyote time
         self.frames_since_land = 0
+        self.was_on_ground = False
+        self.jump_sound_ready = True
+        self.jump_sound = arcade.load_sound("data/sounds/jump.wav")
+        self.jetpack_sound = arcade.load_sound("data/sounds/jetpack.mp3", streaming=True)
+        self.jetpack_sound_player = None
         
         # CAMERAS
         self.camera_sprites = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -312,6 +317,8 @@ class Level4(arcade.View):
         """
         if key == arcade.key.ESCAPE:
             self.paused = not self.paused
+            if self.paused:
+                self._stop_jetpack_sound()
             return
         if self.paused:
             if key == arcade.key.R:
@@ -346,6 +353,20 @@ class Level4(arcade.View):
         """ called whenver mouse is clicked """
         if button == arcade.MOUSE_BUTTON_LEFT:
             print("left mouse button pressed at ", round(x + self.view_left), round(y + CAMERA_OFFSET_Y))
+
+    def _play_jump_sound(self):
+        if self.jump_sound_ready:
+            arcade.play_sound(self.jump_sound)
+            self.jump_sound_ready = False
+
+    def _start_jetpack_sound(self):
+        if self.jetpack_sound_player is None:
+            self.jetpack_sound_player = arcade.play_sound(self.jetpack_sound, looping=True)
+
+    def _stop_jetpack_sound(self):
+        if self.jetpack_sound_player is not None:
+            arcade.stop_sound(self.jetpack_sound_player)
+            self.jetpack_sound_player = None
 
 
     def update(self, delta_time):
@@ -390,12 +411,16 @@ class Level4(arcade.View):
         self.player_sprite.change_x *= 0.97
         # self.player_sprite.change_x = 0
 
-        if self.physics_engine.can_jump():
+        on_ground = self.physics_engine.can_jump()
+        if on_ground and not self.was_on_ground:
+            self.jump_sound_ready = True
+        if on_ground:
             self.player_sprite.change_x = 0
             if self.jetpack_fuel < 100:
                 self.jetpack_fuel += 2
             if self.jump_pressed:
                 self.player_sprite.change_y = JUMP_SPEED
+                self._play_jump_sound()
             # Disable jetpack particles when on ground
             self.jetpack_particle_run = False
         else:
@@ -422,6 +447,12 @@ class Level4(arcade.View):
                 self.jetpack_particle_run = False
         if self.player_sprite.change_y > 3:
             self.player_sprite.change_y = 3
+        self.was_on_ground = on_ground
+
+        if self.jetpack_particle_run:
+            self._start_jetpack_sound()
+        else:
+            self._stop_jetpack_sound()
 
         if self.left_pressed and not self.right_pressed:
             self.player_sprite.change_x = -MOVE_SPEED
@@ -541,6 +572,9 @@ class Level4(arcade.View):
         self.left_pressed = False
         self.right_pressed = False
         self.jump_pressed = False
+        self.was_on_ground = False
+        self.jump_sound_ready = True
+        self._stop_jetpack_sound()
         self.player_sprite.change_x = 0
         self.player_sprite.change_y = 0
         self.player_list.visible = False
@@ -579,6 +613,7 @@ class Level4(arcade.View):
         self.left_pressed = False
         self.right_pressed = False
         self.jump_pressed = False
+        self._stop_jetpack_sound()
         self.door.start_moving_down()
         self.shake_camera()
 

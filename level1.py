@@ -74,6 +74,9 @@ class Level1(arcade.View):
         self.tile_map = None
         # coyote time
         self.frames_since_land = 0
+        self.was_on_ground = False
+        self.jump_sound_ready = True
+        self.jump_sound = arcade.load_sound("data/sounds/jump.wav")
         
         # CAMERAS
         self.camera_sprites = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -255,6 +258,11 @@ class Level1(arcade.View):
         if button == arcade.MOUSE_BUTTON_RIGHT:
             print("right mouse button pressed at ", x, y)
 
+    def _play_jump_sound(self):
+        if self.jump_sound_ready:
+            arcade.play_sound(self.jump_sound)
+            self.jump_sound_ready = False
+
 
     def update(self, delta_time):
         """ Movement and game logic """
@@ -305,16 +313,22 @@ class Level1(arcade.View):
         self.player_sprite.change_x *= 0.92
         # self.player_sprite.change_x = 0
 
-        if self.physics_engine.can_jump():
+        on_ground = self.physics_engine.can_jump()
+        if on_ground and not self.was_on_ground:
+            self.jump_sound_ready = True
+        if on_ground:
             self.frames_since_land = 0
             self.player_sprite.change_x = 0
             if self.jump_pressed:
                 self.player_sprite.change_y = JUMP_SPEED
+                self._play_jump_sound()
         else:
             # coyote time.
             self.frames_since_land += 1
             if self.jump_pressed and self.frames_since_land <= 2 and self.player_sprite.change_y < 2:
                 self.player_sprite.change_y = JUMP_SPEED
+                self._play_jump_sound()
+        self.was_on_ground = on_ground
 
         if self.left_pressed and not self.right_pressed:
             self.player_sprite.change_x = -MOVE_SPEED
@@ -410,6 +424,8 @@ class Level1(arcade.View):
         self.left_pressed = False
         self.right_pressed = False
         self.jump_pressed = False
+        self.was_on_ground = False
+        self.jump_sound_ready = True
         self.player_sprite.change_x = 0
         self.player_sprite.change_y = 0
         self.player_list.visible = False

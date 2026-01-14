@@ -75,6 +75,9 @@ class Level3(arcade.View):
         self.physics_engine = None
         self.tile_map = None
         self.frames_since_land = 0
+        self.was_on_ground = False
+        self.jump_sound_ready = True
+        self.jump_sound = arcade.load_sound("data/sounds/jump.wav")
         self.player_on_platform = False
         self.platform_speed = 0
         
@@ -242,6 +245,11 @@ class Level3(arcade.View):
         if button == arcade.MOUSE_BUTTON_RIGHT:
             print("right mouse button pressed at ", x, y)
 
+    def _play_jump_sound(self):
+        if self.jump_sound_ready:
+            arcade.play_sound(self.jump_sound)
+            self.jump_sound_ready = False
+
 
     def update(self, delta_time):
         """ Movement and game logic """
@@ -285,16 +293,22 @@ class Level3(arcade.View):
         # Calculate speed based on the keys pressed, if in air, does not stop immedietly
         self.player_sprite.change_x *= 0.95 if self.stage == 1 else 0.99
         # self.player_sprite.change_x = 0
-        if self.physics_engine.can_jump():
+        on_ground = self.physics_engine.can_jump()
+        if on_ground and not self.was_on_ground:
+            self.jump_sound_ready = True
+        if on_ground:
             self.frames_since_land = 0
             self.player_sprite.change_x *= 0.5
             if self.jump_pressed:
                 self.player_sprite.change_y = JUMP_SPEED if self.stage == 1 else JUMP_SPEED_2
+                self._play_jump_sound()
         else:
             # coyote time.
             self.frames_since_land += 1
             if self.jump_pressed and self.frames_since_land <= 3 and self.player_sprite.change_y < 2:
                 self.player_sprite.change_y = JUMP_SPEED if self.stage == 1 else JUMP_SPEED_2
+                self._play_jump_sound()
+        self.was_on_ground = on_ground
 
         MOVE_SPEED = 3 if self.stage == 1 else 2
         if self.left_pressed and not self.right_pressed:
@@ -314,6 +328,7 @@ class Level3(arcade.View):
             self.player_sprite.change_x = -self.wall1_list.move_speed
             if self.jump_pressed:
                 self.player_sprite.change_y = JUMP_SPEED
+                self._play_jump_sound()
 
         trigger_hit = arcade.check_for_collision_with_list(self.player_sprite, self.ceiling_list)
         if trigger_hit:
@@ -399,6 +414,8 @@ class Level3(arcade.View):
         self.left_pressed = False
         self.right_pressed = False
         self.jump_pressed = False
+        self.was_on_ground = False
+        self.jump_sound_ready = True
         self.player_sprite.change_x = 0
         self.player_sprite.change_y = 0
         self.player_list.visible = False
