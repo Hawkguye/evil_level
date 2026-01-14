@@ -35,7 +35,7 @@ VIEWPORT_MARGIN = 500
 CAMERA_SPEED = 0.5
 CAMERA_OFFSET_Y = 0
 
-START_POS = (200, 900)
+START_POS = (500, 780)
 
 SPRITE_PATH = "data/sprites/sprite_jetpack.png"
 
@@ -86,7 +86,7 @@ class Cannon:
         """Update cannon and missiles, spawn new missile if interval elapsed"""
         # Spawn new missile if enough time has passed
         if current_time - self.last_spawn_time >= self.spawn_interval:
-            if (self.flipped and self.player_sprite.center_x < 735) or (not self.flipped and self.player_sprite.center_x > 735):
+            if (self.flipped and self.player_sprite.center_x < 1000) or (not self.flipped and self.player_sprite.center_x > 900):
                 missile = Missile(self.sprite.center_x + 30 if self.flipped else self.sprite.center_x - 30, self.sprite.center_y - 10, self.player_sprite, "right" if self.flipped else "left")
                 self.missile_list.append(missile)
                 self.start_firing_animation(current_time)
@@ -228,28 +228,30 @@ class Level5(arcade.View):
         self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING, hit_box_algorithm="Detailed")
 
         # sprite_list is from Tiled map layers
-        self.door = Door(1470, 276)
+        self.door = Door(980, 440)
         self.door.can_be_touched = False
         self.door.opacity = 0  # Hide door until all buttons are pressed
         self.background = self.tile_map.sprite_lists["background"]
         self.platform_list = self.tile_map.sprite_lists["platforms"]
         
-        self.button1 = Button(130, 736, False, True)
-        self.button2 = Button(656, 950)
-        self.button3 = Button(1225, 1232, False, True)
-        self.button_list = [self.button1, self.button2, self.button3]
+        self.button1 = Button(543, 403, False, True)
+        self.button2 = Button(756, 535)
+        self.button3 = Button(1000, 885, False, True)
+        self.button4 = Button(1570, 788, False, True)
+        self.button5 = Button(1100, 245, False, True)
+        self.button_list = [self.button1, self.button2, self.button3, self.button4, self.button5]
         self.buttons_pressed_count = 0
 
-        self.fireball1 = FireBall(290, 620, 673)
-        self.fireball2 = FireBall(460, 620, 635)
-        self.fireball3 = FireBall(734, 620, 633)
-        self.fireball4 = FireBall(990, 620, 640)
-        self.fireball5 = FireBall(1168, 620, 610)
-        self.fireball6 = FireBall(1400, 620, 665)
+        self.fireball1 = FireBall(300, 780, 673)
+        self.fireball2 = FireBall(980, 650, 635)
+        self.fireball3 = FireBall(700, 180, 633)
+        self.fireball4 = FireBall(260, 200, 640)
+        self.fireball5 = FireBall(1440, 280, 610)
+        self.fireball6 = FireBall(1400, 860, 665)
         self.fireball_list = [self.fireball1, self.fireball2, self.fireball3, self.fireball4, self.fireball5, self.fireball6]
 
-        self.cannon = Cannon(170, 596, self.player_sprite, True)
-        self.cannon2 = Cannon(1550, 480, self.player_sprite, False)
+        self.cannon = Cannon(170, 608, self.player_sprite, True)
+        self.cannon2 = Cannon(1700, 608, self.player_sprite, False)
 
         self.vis_sprites_list = [self.platform_list]
 
@@ -496,7 +498,7 @@ class Level5(arcade.View):
                 button.sprite_list.visible = False
         
         # Show door when all buttons are pressed
-        if self.buttons_pressed_count >= 3 and not self.door.can_be_touched:
+        if self.buttons_pressed_count >= 5 and not self.door.can_be_touched:
             self.door.can_be_touched = True
             self.door.opacity = 255
         
